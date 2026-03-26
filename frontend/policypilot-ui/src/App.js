@@ -5,7 +5,7 @@ import ChecklistDrawer from './components/Checklist/ChecklistDrawer';
 import InlineChecklist from './components/Checklist/InlineChecklist';
 import { useAuth } from "./contexts/AuthContext";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "";
 
 
 /* ═══════════════════════════════════════════════════════════════

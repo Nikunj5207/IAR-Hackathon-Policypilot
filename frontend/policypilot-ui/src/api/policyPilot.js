@@ -1,5 +1,5 @@
 // 🔥 IMPORTANT: Backend URL
-const BASE_URL = "http://localhost:8000";
+const BASE_URL = "";
 
 // ✅ Find Schemes — sends JSON (backend expects Pydantic model)
 export async function findSchemes(citizenProfile) {
@@ -34,13 +34,12 @@ export async function findSchemes(citizenProfile) {
 // ✅ Get Checklist
 export async function getChecklist(schemeName, citizenProfile) {
   try {
-    const form = new FormData();
-    form.append("scheme_name", schemeName);
-    form.append("citizen_profile", citizenProfile);
-
     const res = await fetch(`${BASE_URL}/get-checklist`, {
       method: "POST",
-      body: form,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ scheme_name: schemeName, citizen_profile: citizenProfile }),
     });
 
     if (!res.ok) {
@@ -58,12 +57,12 @@ export async function getChecklist(schemeName, citizenProfile) {
 // ✅ Detect Conflict
 export async function detectConflict(schemeName) {
   try {
-    const form = new FormData();
-    form.append("scheme_name", schemeName);
-
     const res = await fetch(`${BASE_URL}/detect-conflict`, {
       method: "POST",
-      body: form,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ scheme_name: schemeName }),
     });
 
     if (!res.ok) {
