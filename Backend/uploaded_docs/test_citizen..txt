@@ -1,0 +1,14 @@
+Name: Ramesh Patel
+Age: 45
+Gender: Male
+Aadhaar Number: 1234 5678 9012
+Address: Village Anand, Taluka Anand, District Anand
+State: Gujarat
+District: Anand
+Pincode: 388001
+Annual Income: 1,20,000
+Caste: OBC
+Occupation: Farmer
+Land Holding: 2 acres
+Bank Account: 9876543210
+IFSC Code: SBIN0001234
