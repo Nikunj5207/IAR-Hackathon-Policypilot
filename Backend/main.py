@@ -129,6 +129,19 @@ def get_chat_messages(chat_id: str):
 
 
 # ════════════════════════════════════════════════════════════════
+
+def _normalize_conflict_keys(conflicts):
+    out = []
+    for c in conflicts:
+        out.append({
+            "schemeA": c.get("schemeA") or c.get("scheme_a", ""),
+            "schemeB": c.get("schemeB") or c.get("scheme_b", ""),
+            "reason":  c.get("reason", ""),
+            "explanation": c.get("explanation", ""),
+        })
+    return out
+
+
 # FIND SCHEMES — JSON body (used by frontend)
 # ════════════════════════════════════════════════════════════════
 
@@ -144,8 +157,21 @@ async def find_schemes_endpoint(body: FindSchemesRequest):
         sources = result.get("sources", [])
         model_conflicts = result.get("conflicts", [])
         guidance = result.get("guidance", {}) or {}
+        
         enriched_schemes = _enrich_schemes_with_checklist(schemes)
-        conflicts = model_conflicts or _detect_scheme_conflicts(enriched_schemes)
+        
+        # NEW: generate real RAG-grounded checklists for top schemes
+        checklists = []
+        for s in enriched_schemes[:3]:
+            try:
+                cl = generate_application_checklist(s.get("title", ""), body.citizen_profile)
+                checklists.append({"scheme": s.get("title"), "checklist": cl})
+                # Also inject into the scheme card itself
+                s["applicationChecklist"] = [line.strip() for line in cl.split("\n") if line.strip()][:8]
+            except Exception:
+                checklists.append({"scheme": s.get("title"), "checklist": s.get("applicationChecklist", [])})
+        
+        conflicts = _normalize_conflict_keys(model_conflicts or _detect_scheme_conflicts(enriched_schemes))
         summary = _build_plain_language_summary(
             enriched_schemes, body.preferred_language or "en"
         )
@@ -172,10 +198,8 @@ async def find_schemes_endpoint(body: FindSchemesRequest):
             "schemes": enriched_schemes,
             "sources": sources,
             "message": message,
-            "checklists": [
-                {"scheme": s.get("title"), "checklist": s.get("applicationChecklist", [])}
-                for s in enriched_schemes
-            ],
+            "guidance": guidance,       # Return full guidance object to frontend
+            "checklists": checklists,   # now real RAG output
             "conflicts": conflicts,
             "summary": summary,
         }
@@ -204,13 +228,14 @@ def _build_checklist_for_scheme(title: str):
 def _enrich_schemes_with_checklist(schemes: list):
     enriched = []
     for idx, scheme in enumerate(schemes):
-        s = dict(scheme) if isinstance(scheme, dict) else {
-            "id": idx + 1,
-            "title": str(scheme),
-        }
+        s = dict(scheme) if isinstance(scheme, dict) else {"id": idx + 1, "title": str(scheme)}
         title = s.get("title") or f"Scheme {idx + 1}"
         s["title"] = title
-        s["applicationChecklist"] = _build_checklist_for_scheme(title)
+        # PRESERVE whatever agent.py already set for bullets/reason/explainPoints
+        # Only add applicationChecklist if not already present
+        if not s.get("applicationChecklist"):
+            s["applicationChecklist"] = _build_checklist_for_scheme(title)
+        # Add draftForm placeholder
         s["draftForm"] = {
             "status": "pending_document_upload",
             "note": "Upload citizen documents to auto-fill the draft application form.",

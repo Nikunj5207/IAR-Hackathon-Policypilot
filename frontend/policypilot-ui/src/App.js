@@ -1785,23 +1785,41 @@ function SegToggle({ options, value, onChange }) {
 }
 
 /* ── Upload with drag & drop + progress ── */
-function UploadPh({ name, hint, uploadedPrefix }) {
+function UploadPh({ name, hint, uploadedPrefix, onDocExtracted, schemeName }) {
   const [fileName, setFileName] = useState(null);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef(null);
 
-  const handleFile = (file) => {
+  const handleFile = async (file) => {
     if (!file) return;
     setUploading(true);
-    setProgress(0);
-    let p = 0;
-    const iv = setInterval(() => {
-      p += Math.random() * 35;
-      if (p >= 100) { p = 100; clearInterval(iv); setUploading(false); setFileName(file.name); }
-      setProgress(Math.min(p, 100));
-    }, 120);
+    setProgress(30);
+
+    const formData = new FormData();
+    formData.append("document", file);
+    formData.append("scheme_name", schemeName || "General");
+
+    try {
+      const res = await fetch(`${API_BASE}/upload-and-fill`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      setProgress(100);
+      setUploading(false);
+      setFileName(file.name);
+
+      // Store extracted fields in parent state so they enrich the next query
+      if (data.citizen_info && onDocExtracted) {
+        onDocExtracted(data.citizen_info);
+      }
+    } catch {
+      setProgress(100);
+      setUploading(false);
+      setFileName(file.name);
+    }
   };
 
   const handleClick = () => inputRef.current && inputRef.current.click();
@@ -2362,7 +2380,7 @@ function LandingPage({ onLogin, onGoogleLogin, onContinue, loginModal, setLoginM
 /* ═══════════════════════════════════════════════════════════════
    CITIZEN DASHBOARD PAGE
 ═══════════════════════════════════════════════════════════════ */
-function CitizenDashboardPage({ currentStep, t, isLoggedIn, socialCategory, setSocialCategory, gender, setGender, education, setEducation, incomeIdx, setIncomeIdx, residenceType, setResidenceType, schemeScope, setSchemeScope, formState, setFormState, isCentralScope, nameRef, ageRef, occRef, aadhaarRef, districtRef, familyRef, enterNext, setLoginModal, onSave, goBack }) {
+function CitizenDashboardPage({ currentStep, t, isLoggedIn, socialCategory, setSocialCategory, gender, setGender, education, setEducation, incomeIdx, setIncomeIdx, residenceType, setResidenceType, schemeScope, setSchemeScope, formState, setFormState, isCentralScope, nameRef, ageRef, occRef, aadhaarRef, districtRef, familyRef, enterNext, setLoginModal, onSave, goBack, onDocExtracted }) {
   const tt = t || ((k) => k);
   const completedFields = [socialCategory, gender, education, residenceType].filter(Boolean).length;
   const completionPct = Math.round((completedFields / 4) * 100);
@@ -2445,8 +2463,8 @@ function CitizenDashboardPage({ currentStep, t, isLoggedIn, socialCategory, setS
                 </FField>
                 <div className="secure-badge"><span className="secure-badge-lock">🔒</span><span>{tt("secureDoc")}</span></div>
                 {!isLoggedIn && <div style={{ fontSize: 11, color: "var(--text-muted)", padding: "4px 0" }}>{tt("signInToStoreDocs")}</div>}
-                <FField label={tt("incomeCertLabel")}><UploadPh name={tt("incomeCertLabel")} hint={tt("incomeCertHint")} uploadedPrefix={tt("uploadedPrefix")} /></FField>
-                <FField label={tt("casteCertLabel")}><UploadPh name={tt("casteCertLabel")} hint={tt("casteCertHint")} uploadedPrefix={tt("uploadedPrefix")} /></FField>
+                <FField label={tt("incomeCertLabel")}><UploadPh name={tt("incomeCertLabel")} hint={tt("incomeCertHint")} uploadedPrefix={tt("uploadedPrefix")} onDocExtracted={onDocExtracted} schemeName="Income Certificate" /></FField>
+                <FField label={tt("casteCertLabel")}><UploadPh name={tt("casteCertLabel")} hint={tt("casteCertHint")} uploadedPrefix={tt("uploadedPrefix")} onDocExtracted={onDocExtracted} schemeName="Caste Certificate" /></FField>
                 <div>
                   <div className="digilocker-divider"><div className="digilocker-divider-line" /><span className="digilocker-divider-text">{tt("orFetchFrom")}</span><div className="digilocker-divider-line" /></div>
                   <button type="button" className="digilocker-btn" onClick={() => setLoginModal(true)}>
@@ -2790,6 +2808,9 @@ export default function App() {
   const [inlineChecklistId, setInlineChecklistId] = useState(null);
   const [highlightInline, setHighlightInline] = useState(false);
 
+  // Extracted document info from uploaded docs
+  const [extractedDocInfo, setExtractedDocInfo] = useState(null);
+
   const t = useT(lang);
   const canvasRef = useRef(null);
   const chatFileRef = useRef(null);
@@ -2827,11 +2848,16 @@ export default function App() {
       .filter(m => m.content);
 
     try {
+      // Append extracted document fields to the profile if available
+      const profileWithDocs = extractedDocInfo
+        ? `${msg}\n\nVerified from uploaded documents: Name: ${extractedDocInfo.name || ""}, Income: ${extractedDocInfo.income || ""}, Address: ${extractedDocInfo.address || ""}`
+        : msg;
+
       const response = await fetch(`${API_BASE}/find-schemes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          citizen_profile: msg,
+          citizen_profile: profileWithDocs,
           preferred_language: lang,
           conversation_history: conversationHistory,
         })
@@ -2850,10 +2876,15 @@ export default function App() {
       }
 
       const aiIntro = data.message || "Here are the government schemes I found for you.";
+      const guidance = data.guidance || {};
       setMessages(prev => [...(prev ?? []), {
         role: "ai",
         time: fmtTime(),
-        guidance: { intro: aiIntro, steps: [], followUp: "" }
+        guidance: { 
+            intro: aiIntro, 
+            steps: guidance.steps || [], 
+            followUp: guidance.followUp || "" 
+        }
       }]);
       setResults(data.schemes || []);
       setVisibleCards([]);
@@ -2865,7 +2896,7 @@ export default function App() {
     } finally {
       setTimeout(() => { if (canvasRef.current) canvasRef.current.scrollTop = canvasRef.current.scrollHeight; }, 80);
     }
-  }, [inputVal, chatFile, lang, messages, showToast]);
+  }, [inputVal, chatFile, lang, messages, showToast, extractedDocInfo]);
 
 
 
@@ -2946,7 +2977,7 @@ export default function App() {
   const micErrorMsg = speech.error === "denied" ? t("micDenied") : speech.error === "unsupported" ? t("micUnsupported") : null;
   const isCentralScope = schemeScope === "Central Schemes (All India)";
 
-  const dashboardProps = { currentStep, t, isLoggedIn, socialCategory, setSocialCategory, gender, setGender, education, setEducation, incomeIdx, setIncomeIdx, residenceType, setResidenceType, schemeScope, setSchemeScope, formState, setFormState, isCentralScope, nameRef, ageRef, occRef, aadhaarRef, districtRef, familyRef, enterNext, setLoginModal, onSave: () => { goTo("main"); handleSend("Show me schemes matching my profile"); }, goBack: () => goTo("main") };
+  const dashboardProps = { currentStep, t, isLoggedIn, socialCategory, setSocialCategory, gender, setGender, education, setEducation, incomeIdx, setIncomeIdx, residenceType, setResidenceType, schemeScope, setSchemeScope, formState, setFormState, isCentralScope, nameRef, ageRef, occRef, aadhaarRef, districtRef, familyRef, enterNext, setLoginModal, onSave: () => { goTo("main"); handleSend("Show me schemes matching my profile"); }, goBack: () => goTo("main"), onDocExtracted: setExtractedDocInfo };
 
   return (
     <>

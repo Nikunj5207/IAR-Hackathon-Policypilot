@@ -623,6 +623,8 @@ def _build_plain_language_summary(schemes: list, preferred_language: str):
         "kn": f"ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಆಧಾರದ ಮೇಲೆ {count} ಯೋಜನೆಗಳು ಹೊಂದಿಕೆಯಾಗಿವೆ: {titles_text}.",
         "ml": f"നിങ്ങളുടെ പ്രൊഫൈലിന്റെ അടിസ്ഥാനത്തിൽ {count} പദ്ധതികൾ കണ്ടെത്തി: {titles_text}.",
         "pa": f"ਤੁਹਾਡੇ ਪ੍ਰੋਫਾਈਲ ਦੇ ਆਧਾਰ 'ਤੇ {count} ਯੋਜਨਾਵਾਂ ਮਿਲੀਆਂ: {titles_text}.",
+        "or": f"ଆପଣଙ୍କ ପ୍ରୋଫାଇଲ ଆଧାରରେ {count}ଟି ଯୋଜନା ମିଳିଲା: {titles_text}.",
+        "as": f"আপোনাৰ প্ৰফাইলৰ ভিত্তিত {count}টা আঁচনি পোৱা গ'ল: {titles_text}.",
     }
     return summaries.get(lang, f"Based on your profile, {count} schemes were matched: {titles_text}.")
 
@@ -785,15 +787,18 @@ def find_schemes(citizen_profile: str, preferred_language: str = "en", conversat
         f"If you cannot translate a proper noun or government scheme acronym, keep it in English but all surrounding text must be in {target_lang}."
     )
 
-    system_prompt = f"""You are PolicyPilot — an AI assistant helping Indian citizens find government schemes.
+    system_prompt = f"""You are PolicyPilot — a concise, helpful AI assistant for Indian government welfare schemes.
 {lang_instruction}
 
 Government Scheme Documents (use ONLY these to recommend schemes):
 {context}
 
-When the user provides their profile, return a JSON object with TWO keys:
-1. "schemes" — an array of matched scheme objects
-2. "guidance" — an object with "intro", "steps" (array of strings), and "followUp"
+Return a JSON object with TWO keys:
+1. "schemes" — array of matched scheme objects
+2. "guidance" — object with:
+   - "intro": A brief 2-3 sentence PERSONALIZED summary addressing the citizen directly. Mention their name/situation if provided. Say what you found and why they qualify. NEVER say generic things like "we found a scheme matching your criteria". Be specific, e.g. "Nikunj, since you are a newborn child (born 31-03-2026), you are eligible for child welfare schemes like Atal Sneh Yojana which provides free health checkups."
+   - "steps": An array of 4-6 concrete application steps for the TOP matched scheme. These MUST be real, actionable steps like: "Visit pmkisan.gov.in and click New Farmer Registration", "Carry Aadhaar card and bank passbook to your nearest CSC centre", etc. NEVER leave this empty.
+   - "followUp": A specific follow-up question like "Would you like me to explain the documents needed for [top scheme name]?"
 
 Each scheme object must have EXACTLY these fields:
 {{
@@ -822,11 +827,13 @@ Category color mapping (use these EXACTLY):
 
 RULES:
 - Only recommend schemes based on the documents provided
-- If the user sends a follow-up question (e.g., about documents or steps for a scheme already mentioned), answer that question directly — do NOT repeat the scheme JSON again; return the same scheme list with an updated "guidance" intro that directly answers their question
+- If the user sends a follow-up question (e.g., about documents or steps for a scheme already mentioned), answer that question directly in the guidance intro — do NOT repeat the scheme JSON again; return the same scheme list with an updated "guidance" intro that directly answers their question with specific steps
 - The "reason" field MUST explain why THIS citizen qualifies — not a generic statement
 - The "explainPoints" array MUST contain specific criteria this citizen meets
 - Set "match" based on how well the citizen profile fits the criteria
 - Never hallucinate eligibility criteria
+- IMPORTANT: The guidance "steps" MUST always contain real application steps. Include the official website, required documents, and offline option (CSC/Jan Seva Kendra)
+- Handle edge cases: newborns, elderly, disabled, students, farmers, daily wage workers — always find relevant schemes
 - Return ONLY the raw JSON object — no markdown, no backticks, no explanation"""
 
     # Build multi-turn message list for the LLM
@@ -882,11 +889,9 @@ RULES:
 
     lang_code = (preferred_language or "en")[:2].lower()
 
-    # For en/hi/gu we have fully vetted static templates for INITIAL matching.
-    # If this is a follow-up conversation (has_history=True), we want the LLM's 
-    # specific contextual response from RAG/PDFs rather than the static intro.
-    static_langs = {"en", "hi", "gu"}
-    need_static = (no_match or bool(conflicts) or lang_code in static_langs) and not has_history
+    # Only force static template when there's genuinely no match or a conflict to surface.
+    # Let the LLM's RAG output through for normal en/hi/gu queries.
+    need_static = (no_match or bool(conflicts)) and not has_history
 
     if need_static:
         guidance["intro"] = _build_structured_response(
@@ -898,9 +903,54 @@ RULES:
         )
     else:
         # Keep the LLM-generated introduction (already in the correct language).
-        # If the LLM left it empty, fall back to a short summary.
-        if not guidance.get("intro"):
+        # If the LLM left it empty or too generic, fall back to a short summary.
+        intro = guidance.get("intro", "")
+        generic_phrases = [
+            "based on your profile",
+            "we have found",
+            "here are the schemes",
+            "matches your eligibility",
+            "matching your criteria",
+            "you may qualify",
+        ]
+        is_generic = not intro or len(intro) < 30 or any(p in intro.lower() for p in generic_phrases)
+        if is_generic and schemes:
+            # Build a better intro from scheme data
+            top = schemes[0]
+            title = top.get("title", "a government scheme")
+            reason = top.get("reason", "")
+            count = len(schemes)
+            guidance["intro"] = (
+                f"I found {count} scheme{'s' if count > 1 else ''} for you. "
+                f"The top match is **{title}** — {reason} "
+                f"See the scheme cards on the right for full details and eligibility breakdown."
+            )
+        elif is_generic:
             guidance["intro"] = _build_plain_language_summary(schemes, preferred_language)
+
+    # ── Ensure guidance.steps is NEVER empty ──
+    if not guidance.get("steps") or len(guidance["steps"]) == 0:
+        if schemes:
+            top_title = schemes[0].get("title", "")
+            detail_key = _get_scheme_detail_key(top_title)
+            detail = SCHEME_DETAILS.get(detail_key, SCHEME_DETAILS["default"])
+            link = _get_official_link(top_title) or detail.get("link") or "the official government portal"
+            guidance["steps"] = [
+                f"Visit {link} and look for '{top_title}' registration.",
+                "Keep your Aadhaar card, income certificate, and bank passbook ready.",
+                "Fill the online application form with your personal and bank details.",
+                "If you prefer offline: visit your nearest Common Service Centre (CSC) or Jan Seva Kendra with all documents.",
+                "After submitting, note your application reference number and check status on the portal.",
+            ]
+            # Use scheme-specific steps if available
+            if detail_key != "default" and detail.get("steps"):
+                guidance["steps"] = detail["steps"]
+        else:
+            guidance["steps"] = [
+                "Share more details about yourself (occupation, income, state) for better matches.",
+                "Visit india.gov.in/my-government/schemes for the full scheme directory.",
+                "Visit your nearest Common Service Centre (CSC) for in-person help.",
+            ]
 
     # ── followUp message (all 12 languages) ──
     _FOLLOWUP = {
