@@ -1,7 +1,11 @@
 .env
+*.env
 *.sqlite3
 __pycache__/
 *.pyc
 node_modules/
 .env
 Slider images/
+__pycache__/
+*.pyc
+*.sqlite3

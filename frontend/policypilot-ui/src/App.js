@@ -2303,13 +2303,7 @@ function LandingPage({ onLogin, onGoogleLogin, onContinue, loginModal, setLoginM
             <p className="landing-sub">Discover schemes you qualify for — in your language, instantly.<br />Powered by AI. Verified government sources.</p>
 
             <div style={{ width: "100%", maxWidth: 800, height: 340, margin: "16px 0" }}>
-              <HeroCarousel images={[
-                "/carousel/media__1774379683201.png",
-                "/carousel/media__1774379690503.png",
-                "/carousel/media__1774379696563.png",
-                "/carousel/media__1774379701296.png",
-                "/carousel/media__1774379342827.png"
-              ]} interval={1000} />
+              <HeroCarousel images={["/carousel/1.png", "/carousel/2.png", "/carousel/3.png", "/carousel/4.png", "/carousel/5.png"]} interval={1000} />
             </div>
 
             <div className="landing-scheme-strip">
@@ -2345,18 +2339,10 @@ function LandingPage({ onLogin, onGoogleLogin, onContinue, loginModal, setLoginM
             </div>
             <div style={{ width: "100%", marginTop: 20, display: "flex", gap: "16px" }}>
               <div className="landing-support-card">
-                <HeroCarousel images={[
-                  "/carousel/media__1774379701296.png",
-                  "/carousel/media__1774379709242.png",
-                  "/carousel/media__1774379690503.png"
-                ]} interval={1000} />
+                <HeroCarousel images={["/carousel/1.png", "/carousel/2.png", "/carousel/3.png"]} interval={1000} />
               </div>
               <div className="landing-support-card">
-                <HeroCarousel images={[
-                  "/carousel/media__1774379696563.png",
-                  "/carousel/media__1774379342827.png",
-                  "/carousel/media__1774379683201.png"
-                ]} interval={1000} />
+                <HeroCarousel images={["/carousel/4.png", "/carousel/5.png", "/carousel/1.png"]} interval={1000} />
               </div>
             </div>
           </div>
