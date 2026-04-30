@@ -1,11 +1,30 @@
+# Environment
 .env
 *.env
-*.sqlite3
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Database
+*.sqlite3
+policypilot.db
+
+# Node
 node_modules/
-.env
+build/
+
+# Chroma vector store (rebuilt on deploy from PDFs)
+Backend/chroma_db/
+
+# Misc
 Slider images/
-__pycache__/
-*.pyc
-*.sqlite3
+uploaded_docs/
