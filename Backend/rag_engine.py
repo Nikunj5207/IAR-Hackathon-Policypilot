@@ -4,10 +4,6 @@ import sys
 sys.modules['sqlite3'] = sys.modules.get('pysqlite3')
 
 import os
-from langchain_community.document_loaders import PyMuPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -20,6 +16,7 @@ _vectorstore_cache = None
 
 
 def get_embeddings():
+    from langchain_huggingface import HuggingFaceEmbeddings
     return HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
@@ -37,6 +34,7 @@ def load_and_index_pdfs():
         if filename.endswith(".pdf"):
             filepath = os.path.join(PDFS_DIR, filename)
             try:
+                from langchain_community.document_loaders import PyMuPDFLoader
                 loader = PyMuPDFLoader(filepath)
                 docs = loader.load()
                 for doc in docs:
@@ -52,6 +50,7 @@ def load_and_index_pdfs():
 
     print(f"Total pages loaded: {len(all_docs)}")
 
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=200
@@ -63,6 +62,7 @@ def load_and_index_pdfs():
     print("⏳ Embedding started...")
 
     os.makedirs(CHROMA_DIR, exist_ok=True)
+    from langchain_chroma import Chroma
     vectorstore = Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,
@@ -84,6 +84,7 @@ def get_vectorstore():
 
     if os.path.exists(CHROMA_DIR) and os.listdir(CHROMA_DIR):
         print("📂 Loading existing Chroma vectorstore...")
+        from langchain_chroma import Chroma
         _vectorstore_cache = Chroma(
             persist_directory=CHROMA_DIR,
             embedding_function=embeddings

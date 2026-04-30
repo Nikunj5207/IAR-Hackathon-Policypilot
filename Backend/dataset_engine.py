@@ -1,6 +1,5 @@
 import os
 import json
-import pandas as pd
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
@@ -14,6 +13,7 @@ def load_datasets():
     csv_path = os.path.join(DATA_DIR, "All schemes dataset.csv")
     if os.path.exists(csv_path):
         try:
+            import pandas as pd
             df = pd.read_csv(csv_path)
             for _, row in df.iterrows():
                 name = str(row.get('scheme_name', '')).strip()
@@ -98,5 +98,3 @@ def search_schemes(query_text: str, limit=5):
     results.sort(key=lambda x: x[0], reverse=True)
     return [r[1] for r in results[:limit]]
 
-# Initialize on import
-load_datasets()

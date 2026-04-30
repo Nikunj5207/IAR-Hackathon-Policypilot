@@ -2,7 +2,6 @@ import os
 import json
 from dotenv import load_dotenv
 from groq import Groq
-import fitz
 
 load_dotenv()
 
@@ -11,6 +10,7 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY", "dummy_key_to_prevent_boot_crash
 def extract_text_from_document(file_path: str) -> str:
     print(f"Extracting text from: {file_path}")
     try:
+        import fitz
         doc = fitz.open(file_path)
         text = ""
         for page in doc:
