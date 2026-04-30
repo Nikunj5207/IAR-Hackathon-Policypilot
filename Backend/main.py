@@ -1,7 +1,7 @@
 # ── PATCH CORE SQLITE FOR CHROMADB ON RENDER ──
 __import__('pysqlite3')
 import sys
-sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+sys.modules['sqlite3'] = sys.modules.get('pysqlite3')
 
 import os
 import re

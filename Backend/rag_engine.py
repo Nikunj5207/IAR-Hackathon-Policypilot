@@ -1,3 +1,8 @@
+# Patch sqlite3 for Render
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.get('pysqlite3')
+
 import os
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
