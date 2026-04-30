@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { app } from "./firebase";
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebase";
+import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 /* ═══════════════════════════════════════════════════════════════
    CONFIG
@@ -1076,7 +1076,6 @@ export default function App() {
   const [authDropdown,setAuthDropdown]=useState(false);
   const [toast,setToast]=useState(null);
 
-  const auth = getAuth(app);
   const authRef = useRef(null);
 
   /* Form */
@@ -1095,6 +1094,7 @@ export default function App() {
 
   /* ── Listen to Firebase auth changes ── */
   useEffect(() => {
+    if (!auth) return undefined;
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         const initials = firebaseUser.displayName
@@ -1126,6 +1126,10 @@ export default function App() {
 
   /* ── REAL Google Sign-In ── */
   const handleGoogleSignIn = useCallback(async () => {
+    if (!auth) {
+      showToast("⚠️ Firebase is not configured. Please set production environment variables.", "error");
+      return;
+    }
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
@@ -1149,6 +1153,7 @@ export default function App() {
 
   /* ── Logout ── */
   const handleLogout = useCallback(async () => {
+    if (!auth) return;
     try {
       await signOut(auth);
       setAuthDropdown(false);
@@ -1301,6 +1306,8 @@ export default function App() {
   const onSpeechResult=useCallback((text)=>setInputVal(prev=>prev?prev+" "+text:text),[]);
   const speech=useSpeech({onResult:onSpeechResult,lang});
   const micErrorMsg=speech.error==="denied"?t("micDenied"):speech.error==="unsupported"?t("micUnsupported"):null;
+  const isApiConfigured = Boolean(API_BASE);
+  const isFirebaseConfigured = Boolean(auth);
 
   const filteredChats=searchQuery.trim()
     ?chatHistory.filter(c=>c.title.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -1392,6 +1399,13 @@ export default function App() {
             </div>
           </div>
         </header>
+
+        {(!isApiConfigured || !isFirebaseConfigured) && (
+          <div style={{padding:"10px 16px",background:"#fff4e5",borderBottom:"1px solid #f0d39a",color:"#7a5400",fontSize:12,fontWeight:600}}>
+            {!isApiConfigured && "API config missing: set REACT_APP_API_URL. "}
+            {!isFirebaseConfigured && "Firebase config missing: set REACT_APP_FIREBASE_* variables."}
+          </div>
+        )}
 
         <div className="app-body">
 
