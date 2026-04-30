@@ -1,30 +1,33 @@
-# Environment
+# Environment secrets — NEVER commit these
 .env
 *.env
 
-# Python
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
 
-# Virtual environment
+# Virtual environment — not needed on Render
 venv/
 env/
 .venv/
 
-# Database
+# SQLite database (ephemeral, not needed in git)
 *.sqlite3
-policypilot.db
+Backend/policypilot.db
 
-# Node
-node_modules/
-build/
-
-# Chroma vector store (rebuilt on deploy from PDFs)
+# Chroma vector DB — rebuilt on Render from PDFs
 Backend/chroma_db/
+
+# Uploaded user documents
+Backend/uploaded_docs/
+
+# Node / React
+node_modules/
+frontend/policypilot-ui/build/
 
 # Misc
 Slider images/
-uploaded_docs/
+
+# NOTE: Backend/pdfs/ and Backend/data/ ARE committed (needed for Render build)

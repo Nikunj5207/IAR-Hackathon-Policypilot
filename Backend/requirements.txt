@@ -16,3 +16,4 @@ reportlab
 python-dotenv
 sentence-transformers
 groq
+pandas
