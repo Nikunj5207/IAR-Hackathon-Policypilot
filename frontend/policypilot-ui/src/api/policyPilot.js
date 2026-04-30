@@ -1,5 +1,5 @@
 const BASE_URL = (process.env.REACT_APP_API_URL || "").replace(/\/$/, "");
-const API_TIMEOUT_MS = 20000;
+const API_TIMEOUT_MS = 90000; // 90s — AI + RAG can take 30-60s on cold start
 
 async function apiRequest(path, options = {}) {
   try {

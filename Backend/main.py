@@ -5,6 +5,7 @@ import uuid
 import logging
 import time
 import traceback
+import hashlib
 from datetime import datetime
 from typing import Optional
 
@@ -37,6 +38,27 @@ app.add_middleware(
 
 UPLOAD_DIR = "uploaded_docs"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# ── Simple in-memory query cache ──────────────────────────────
+_RESPONSE_CACHE: dict = {}
+_CACHE_MAX = 100  # keep at most 100 entries
+
+
+def _cache_key(profile: str, lang: str) -> str:
+    return hashlib.md5(f"{profile.strip().lower()}:{lang}".encode()).hexdigest()
+
+
+def _cache_get(profile: str, lang: str):
+    return _RESPONSE_CACHE.get(_cache_key(profile, lang))
+
+
+def _cache_set(profile: str, lang: str, value: dict):
+    key = _cache_key(profile, lang)
+    if len(_RESPONSE_CACHE) >= _CACHE_MAX:
+        # Evict oldest key
+        _RESPONSE_CACHE.pop(next(iter(_RESPONSE_CACHE)), None)
+    _RESPONSE_CACHE[key] = value
+
 
 # ── In-memory chat store ──────────────────────────────────────
 # Format: { chat_id: { id, title, meta, messages: [], schemes: [] } }
@@ -159,41 +181,46 @@ def get_chat_messages(chat_id: str):
 @app.post("/find-schemes")
 async def find_schemes_endpoint(body: FindSchemesRequest):
     start = time.time()
-    logger.info("STEP 1: /find-schemes request received")
+    lang = body.preferred_language or "en"
+    logger.info("[find-schemes] Request received | profile_len=%d | lang=%s", len(body.citizen_profile), lang)
     try:
+        # ── Cache check ──────────────────────────────────────────
+        cached = _cache_get(body.citizen_profile, lang)
+        if cached and not body.chat_id:  # don’t serve cache when linked to a specific chat
+            logger.info("[find-schemes] Cache HIT — returning cached result in %.2fs", time.time() - start)
+            return cached
+
+        # ── AI + RAG call ──────────────────────────────────────────
+        t1 = time.time()
         find_schemes, _ = get_agent()
-        result = find_schemes(
-            body.citizen_profile,
-            preferred_language=body.preferred_language or "en"
-        )
+        logger.info("[find-schemes] Agent imported in %.2fs", time.time() - t1)
+
+        t2 = time.time()
+        result = find_schemes(body.citizen_profile, preferred_language=lang)
+        logger.info("[find-schemes] find_schemes() completed in %.2fs", time.time() - t2)
+
         schemes = result.get("schemes", [])
         sources = result.get("sources", [])
         model_conflicts = result.get("conflicts", [])
         guidance = result.get("guidance", {}) or {}
+
+        t3 = time.time()
         enriched_schemes = _enrich_schemes_with_checklist(schemes)
         conflicts = model_conflicts or _detect_scheme_conflicts(enriched_schemes)
-        summary = _build_plain_language_summary(
-            enriched_schemes, body.preferred_language or "en"
-        )
+        summary = _build_plain_language_summary(enriched_schemes, lang)
         message = guidance.get("intro") or summary or "Here are your matched schemes."
+        logger.info("[find-schemes] Enrichment + conflict check in %.2fs", time.time() - t3)
 
-        # Persist to chat store if chat_id given
+        # ── Persist to chat store ───────────────────────────────────
         if body.chat_id and body.chat_id in chats_store:
             chat = chats_store[body.chat_id]
-            chat["messages"].append({
-                "role": "user",
-                "content": body.citizen_profile,
-            })
-            chat["messages"].append({
-                "role": "ai",
-                "content": message,
-            })
+            chat["messages"].append({"role": "user",  "content": body.citizen_profile})
+            chat["messages"].append({"role": "ai",    "content": message})
             chat["schemes"] = enriched_schemes
-            # Update title from first user message
             if len(chat["messages"]) <= 2:
                 chat["title"] = body.citizen_profile[:50]
 
-        return {
+        response_payload = {
             "status": "success",
             "schemes": enriched_schemes,
             "sources": sources,
@@ -206,12 +233,18 @@ async def find_schemes_endpoint(body: FindSchemesRequest):
             "summary": summary,
         }
 
+        # Cache only non-chat responses
+        if not body.chat_id:
+            _cache_set(body.citizen_profile, lang, response_payload)
+
+        return response_payload
+
     except Exception as e:
         logger.error(traceback.format_exc())
-        logger.exception("find-schemes endpoint failed")
+        logger.exception("[find-schemes] Endpoint failed")
         return {"error": str(e)}
     finally:
-        logger.info("STEP 2: /find-schemes completed in %.2fs", time.time() - start)
+        logger.info("[find-schemes] Total time: %.2fs", time.time() - start)
 
 
 def _normalize_scheme_key(title: str) -> str:

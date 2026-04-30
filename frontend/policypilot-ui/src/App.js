@@ -6,7 +6,7 @@ import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from
    CONFIG
 ═══════════════════════════════════════════════════════════════ */
 const API_BASE = (process.env.REACT_APP_API_URL || "").replace(/\/$/, "");
-const API_TIMEOUT_MS = 20000;
+const API_TIMEOUT_MS = 90000; // 90s — AI + RAG can take 30-60s on Render free tier
 
 /* ═══════════════════════════════════════════════════════════════
    TRANSLATIONS
@@ -556,6 +556,8 @@ const THINKING_MESSAGES = [
   { emoji:"🔎", text:"Searching government scheme documents…" },
   { emoji:"📄", text:"Reading policy documents…" },
   { emoji:"🤖", text:"Generating personalised recommendations…" },
+  { emoji:"⏳", text:"AI is processing — this may take 30–60 seconds…" },
+  { emoji:"🌐", text:"Almost there! Finalising your scheme matches…" },
 ];
 const STARTERS = [
   "I'm a small farmer in Gujarat with 2 acres",
@@ -837,18 +839,27 @@ function ResultCard({scheme,idx,visible}) {
 
 /* AI Thinking */
 function SmartTyping() {
-  const [step,setStep]=useState(0);
-  useEffect(()=>{
-    const iv=setInterval(()=>setStep(s=>Math.min(s+1,THINKING_MESSAGES.length-1)),600);
-    return ()=>clearInterval(iv);
-  },[]);
+  const [step, setStep] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const elapsedIv = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    const stepIv   = setInterval(() => setStep(s => Math.min(s + 1, THINKING_MESSAGES.length - 1)), 4000);
+    return () => { clearInterval(elapsedIv); clearInterval(stepIv); };
+  }, []);
   return (
     <div className="ai-thinking">
-      {THINKING_MESSAGES.slice(0,step+1).map((m,i)=>(
+      {THINKING_MESSAGES.slice(0, step + 1).map((m, i) => (
         <div key={i} className="thinking-msg"><span className="thinking-emoji">{m.emoji}</span><span>{m.text}</span></div>
       ))}
+      {elapsed >= 10 && (
+        <div className="thinking-msg" style={{ color:"var(--text-muted)", fontSize:12 }}>
+          <span className="thinking-emoji">⏱️</span>
+          <span>Processing for {elapsed}s — AI models can take up to 60s on first run…</span>
+        </div>
+      )}
       <div className="shimmer-lines">
-        {[100,80,60].map((w,i)=><div key={i} className="shimmer-line" style={{width:`${w}%`,animationDelay:`${i*0.15}s`}}/>)}
+        {[100, 80, 60].map((w, i) => <div key={i} className="shimmer-line" style={{ width:`${w}%`, animationDelay:`${i*0.15}s` }}/>)}
       </div>
     </div>
   );
@@ -1259,7 +1270,10 @@ export default function App() {
       setTimeout(()=>{if(canvasRef.current)canvasRef.current.scrollTop=canvasRef.current.scrollHeight;},80);
     } catch (err) {
       setTyping(false);
-      setApiError(err?.message || "Failed to connect to backend.");
+      const errMsg = (err?.message || "").toLowerCase().includes("timed out")
+        ? "⚠️ Server is warming up (Render cold start). Please wait 30s and try again."
+        : "Failed to connect to the backend.";
+      setApiError(errMsg);
       setCurrentStep("profile");
     }
   }, [activeScheme,activeChatId,loadChats,lang]);
@@ -1295,9 +1309,12 @@ export default function App() {
       setCurrentStep(schemes.length>0?"checklist":"schemes");
       await loadChats();
       setTimeout(()=>{if(canvasRef.current)canvasRef.current.scrollTop=canvasRef.current.scrollHeight;},80);
-    } catch {
+    } catch (err) {
       setTyping(false);
-      setApiError("Failed to connect to the backend.");
+      const errMsg = (err?.message || "").toLowerCase().includes("timed out")
+        ? "⚠️ Server is warming up (Render cold start). Please wait 30s and try again."
+        : "Failed to connect to the backend.";
+      setApiError(errMsg);
       setCurrentStep("profile");
     }
   }, [inputVal,chatFile,activeChatId,loadChats,lang]);

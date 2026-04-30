@@ -12,20 +12,29 @@ const firebaseConfig = {
   measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
-const hasFirebaseConfig = Boolean(
-  firebaseConfig.apiKey &&
-  firebaseConfig.authDomain &&
-  firebaseConfig.projectId &&
-  firebaseConfig.appId
-);
+console.log("FIREBASE CONFIG:", {
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+});
 
-const app = hasFirebaseConfig ? initializeApp(firebaseConfig) : null;
-const auth = app ? getAuth(app) : null;
-const db = app ? getFirestore(app) : null;
-const googleProvider = new GoogleAuthProvider();
+const requiredKeys = [
+  "REACT_APP_FIREBASE_API_KEY",
+  "REACT_APP_FIREBASE_AUTH_DOMAIN",
+  "REACT_APP_FIREBASE_PROJECT_ID",
+  "REACT_APP_FIREBASE_STORAGE_BUCKET",
+  "REACT_APP_FIREBASE_MESSAGING_SENDER_ID",
+  "REACT_APP_FIREBASE_APP_ID",
+  "REACT_APP_FIREBASE_MEASUREMENT_ID",
+];
 
-if (!hasFirebaseConfig) {
-  console.error("Firebase environment variables are missing. Auth is disabled until configured.");
+const missingKeys = requiredKeys.filter((key) => !process.env[key]);
+if (missingKeys.length > 0) {
+  throw new Error(`Missing Firebase environment variables: ${missingKeys.join(", ")}`);
 }
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
 
 export { app, auth, db, googleProvider };

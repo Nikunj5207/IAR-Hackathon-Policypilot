@@ -3,7 +3,6 @@ import json
 import re
 from dotenv import load_dotenv
 from groq import Groq
-from rag_engine import get_vectorstore
 
 load_dotenv()
 
@@ -411,7 +410,11 @@ def find_schemes(citizen_profile: str, preferred_language: str = "en"):
             "conflicts": [],
         }
 
+    import time as _t
+    _t0 = _t.time()
+    from rag_engine import get_vectorstore
     vectorstore = get_vectorstore()
+    print(f"[agent] vectorstore ready in {_t.time()-_t0:.2f}s")
     results = vectorstore.similarity_search(citizen_profile, k=10)
 
     context = ""
@@ -538,6 +541,7 @@ RULES:
 
 
 def generate_application_checklist(scheme_name: str, citizen_profile: str):
+    from rag_engine import get_vectorstore
     vectorstore = get_vectorstore()
     results = vectorstore.similarity_search(
         f"{scheme_name} application documents required", k=5
