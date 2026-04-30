@@ -1,5 +1,5 @@
 // 🔥 IMPORTANT: Backend URL
-const BASE_URL = "";
+const BASE_URL = process.env.REACT_APP_API_URL || "";
 
 // ✅ Find Schemes — sends JSON (backend expects Pydantic model)
 export async function findSchemes(citizenProfile) {

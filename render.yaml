@@ -1,0 +1,37 @@
+services:
+  # BACKEND SERVICE (FastAPI)
+  - type: web
+    name: policypilot-backend
+    runtime: python
+    region: singapore
+    plan: free
+    rootDir: Backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+  # FRONTEND SERVICE (React App)
+  - type: web
+    name: policypilot-frontend
+    runtime: static
+    region: singapore
+    plan: free
+    rootDir: frontend/policypilot-ui
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: REACT_APP_API_URL
+        fromService:
+          type: web
+          name: policypilot-backend
+          envVarKey: RENDER_EXTERNAL_URL
