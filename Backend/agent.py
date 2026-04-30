@@ -8,7 +8,7 @@ import dataset_engine
 
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+client = Groq(api_key=os.getenv("GROQ_API_KEY", "dummy_key_to_prevent_boot_crash"))
 
 
 # ── Category styles ──────────────────────────────────────────────

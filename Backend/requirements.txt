@@ -17,3 +17,4 @@ python-dotenv
 sentence-transformers
 groq
 pandas
+pysqlite3-binary
