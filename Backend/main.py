@@ -1,12 +1,10 @@
-# ── PATCH CORE SQLITE FOR CHROMADB ON RENDER ──
-__import__('pysqlite3')
-import sys
-sys.modules['sqlite3'] = sys.modules.get('pysqlite3')
-
 import os
 import re
 import shutil
 import uuid
+import logging
+import time
+import traceback
 from datetime import datetime
 from typing import Optional
 
@@ -15,19 +13,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-from agent import find_schemes, generate_application_checklist, get_scheme_detail
-from conflict_detector import detect_conflicts, check_all_conflicts
-from form_filler import process_uploaded_document
-from rag_engine import load_and_index_pdfs, get_vectorstore
-
 load_dotenv()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("policypilot.main")
 
 app = FastAPI(title="PolicyPilot API", version="2.0.0")
 
 # ── CORS ──────────────────────────────────────────────────────
+frontend_origins = [
+    "http://localhost:3000",
+    "https://frontendpolicypilot.vercel.app",
+]
+extra_origins = os.getenv("ALLOWED_ORIGINS", "")
+if extra_origins:
+    frontend_origins.extend([o.strip() for o in extra_origins.split(",") if o.strip()])
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=frontend_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,6 +42,26 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # Format: { chat_id: { id, title, meta, messages: [], schemes: [] } }
 chats_store = {}
 
+
+def get_rag_engine():
+    from rag_engine import load_and_index_pdfs, get_vectorstore
+    return load_and_index_pdfs, get_vectorstore
+
+
+def get_agent():
+    from agent import find_schemes, generate_application_checklist
+    return find_schemes, generate_application_checklist
+
+
+def get_conflict_detector():
+    from conflict_detector import detect_conflicts, check_all_conflicts
+    return detect_conflicts, check_all_conflicts
+
+
+def get_form_filler():
+    from form_filler import process_uploaded_document
+    return process_uploaded_document
+
 # ── Pydantic models ───────────────────────────────────────────
 class ChatCreate(BaseModel):
     title: str
@@ -48,7 +70,6 @@ class FindSchemesRequest(BaseModel):
     citizen_profile: str
     chat_id: Optional[str] = None
     preferred_language: Optional[str] = "en"
-    conversation_history: Optional[list] = []
 
 class ChecklistRequest(BaseModel):
     scheme_name: str
@@ -60,11 +81,6 @@ class ConflictRequest(BaseModel):
 class AllConflictsRequest(BaseModel):
     schemes: str  # comma-separated
 
-class SchemeDetailRequest(BaseModel):
-    scheme_name: str
-    citizen_profile: Optional[str] = ""
-    preferred_language: Optional[str] = "en"
-
 
 # ════════════════════════════════════════════════════════════════
 # BASIC ENDPOINTS
@@ -72,6 +88,7 @@ class SchemeDetailRequest(BaseModel):
 
 @app.get("/")
 def root():
+    logger.info("Root health check called")
     return {"message": "PolicyPilot API is running!"}
 
 @app.get("/health")
@@ -81,9 +98,11 @@ def health():
 @app.post("/index-pdfs")
 def index_pdfs():
     try:
+        load_and_index_pdfs, _ = get_rag_engine()
         load_and_index_pdfs()
         return {"message": "✅ PDFs successfully indexed!"}
     except Exception as e:
+        logger.exception("Failed to index PDFs")
         return {"error": str(e)}
 
 
@@ -134,49 +153,25 @@ def get_chat_messages(chat_id: str):
 
 
 # ════════════════════════════════════════════════════════════════
-
-def _normalize_conflict_keys(conflicts):
-    out = []
-    for c in conflicts:
-        out.append({
-            "schemeA": c.get("schemeA") or c.get("scheme_a", ""),
-            "schemeB": c.get("schemeB") or c.get("scheme_b", ""),
-            "reason":  c.get("reason", ""),
-            "explanation": c.get("explanation", ""),
-        })
-    return out
-
-
 # FIND SCHEMES — JSON body (used by frontend)
 # ════════════════════════════════════════════════════════════════
 
 @app.post("/find-schemes")
 async def find_schemes_endpoint(body: FindSchemesRequest):
+    start = time.time()
+    logger.info("STEP 1: /find-schemes request received")
     try:
+        find_schemes, _ = get_agent()
         result = find_schemes(
             body.citizen_profile,
-            preferred_language=body.preferred_language or "en",
-            conversation_history=body.conversation_history or []
+            preferred_language=body.preferred_language or "en"
         )
         schemes = result.get("schemes", [])
         sources = result.get("sources", [])
         model_conflicts = result.get("conflicts", [])
         guidance = result.get("guidance", {}) or {}
-        
         enriched_schemes = _enrich_schemes_with_checklist(schemes)
-        
-        # NEW: generate real RAG-grounded checklists for top schemes
-        checklists = []
-        for s in enriched_schemes[:3]:
-            try:
-                cl = generate_application_checklist(s.get("title", ""), body.citizen_profile)
-                checklists.append({"scheme": s.get("title"), "checklist": cl})
-                # Also inject into the scheme card itself
-                s["applicationChecklist"] = [line.strip() for line in cl.split("\n") if line.strip()][:8]
-            except Exception:
-                checklists.append({"scheme": s.get("title"), "checklist": s.get("applicationChecklist", [])})
-        
-        conflicts = _normalize_conflict_keys(model_conflicts or _detect_scheme_conflicts(enriched_schemes))
+        conflicts = model_conflicts or _detect_scheme_conflicts(enriched_schemes)
         summary = _build_plain_language_summary(
             enriched_schemes, body.preferred_language or "en"
         )
@@ -203,14 +198,20 @@ async def find_schemes_endpoint(body: FindSchemesRequest):
             "schemes": enriched_schemes,
             "sources": sources,
             "message": message,
-            "guidance": guidance,       # Return full guidance object to frontend
-            "checklists": checklists,   # now real RAG output
+            "checklists": [
+                {"scheme": s.get("title"), "checklist": s.get("applicationChecklist", [])}
+                for s in enriched_schemes
+            ],
             "conflicts": conflicts,
             "summary": summary,
         }
 
     except Exception as e:
+        logger.error(traceback.format_exc())
+        logger.exception("find-schemes endpoint failed")
         return {"error": str(e)}
+    finally:
+        logger.info("STEP 2: /find-schemes completed in %.2fs", time.time() - start)
 
 
 def _normalize_scheme_key(title: str) -> str:
@@ -233,14 +234,13 @@ def _build_checklist_for_scheme(title: str):
 def _enrich_schemes_with_checklist(schemes: list):
     enriched = []
     for idx, scheme in enumerate(schemes):
-        s = dict(scheme) if isinstance(scheme, dict) else {"id": idx + 1, "title": str(scheme)}
+        s = dict(scheme) if isinstance(scheme, dict) else {
+            "id": idx + 1,
+            "title": str(scheme),
+        }
         title = s.get("title") or f"Scheme {idx + 1}"
         s["title"] = title
-        # PRESERVE whatever agent.py already set for bullets/reason/explainPoints
-        # Only add applicationChecklist if not already present
-        if not s.get("applicationChecklist"):
-            s["applicationChecklist"] = _build_checklist_for_scheme(title)
-        # Add draftForm placeholder
+        s["applicationChecklist"] = _build_checklist_for_scheme(title)
         s["draftForm"] = {
             "status": "pending_document_upload",
             "note": "Upload citizen documents to auto-fill the draft application form.",
@@ -272,53 +272,6 @@ def _detect_scheme_conflicts(schemes: list):
     return conflicts
 
 
-# ════════════════════════════════════════════════════════════════
-# SCHEME DETAIL ENDPOINT
-# ════════════════════════════════════════════════════════════════
-
-@app.post("/scheme-detail")
-async def scheme_detail_endpoint(body: SchemeDetailRequest):
-    try:
-        result = get_scheme_detail(
-            body.scheme_name,
-            body.citizen_profile or "",
-            body.preferred_language or "en",
-        )
-        return {"status": "success", **result}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-# ── AUTHENTICATION ENDPOINTS (DUMMY FOR PILOT) ───────────────────
-
-class AuthRequest(BaseModel):
-    email: str = None
-    phone: str = None
-    password: str = None
-    name: str = None
-
-@app.post("/auth/signup")
-async def auth_signup(req: AuthRequest):
-    return {
-        "token": "dummy-jwt-token-12345",
-        "user": {"name": req.name or "Citizen", "email": req.email, "phone": req.phone}
-    }
-
-@app.post("/auth/login")
-async def auth_login(req: AuthRequest):
-    return {
-        "token": "dummy-jwt-token-67890",
-        "user": {"name": "Citizen User", "email": req.email, "phone": req.phone}
-    }
-
-@app.post("/auth/google")
-async def auth_google():
-    return {
-        "token": "dummy-jwt-token-google-abcde",
-        "user": {"name": "Google User", "email": "user@gmail.com"}
-    }
-
-
 def _build_plain_language_summary(schemes: list, preferred_language: str):
     count = len(schemes)
     top_titles = [s.get("title", "Scheme") for s in schemes[:3]]
@@ -336,6 +289,7 @@ def _build_plain_language_summary(schemes: list, preferred_language: str):
 @app.post("/get-checklist")
 async def get_checklist(body: ChecklistRequest):
     try:
+        _, generate_application_checklist = get_agent()
         checklist = generate_application_checklist(
             body.scheme_name, body.citizen_profile
         )
@@ -345,6 +299,7 @@ async def get_checklist(body: ChecklistRequest):
             "checklist": checklist,
         }
     except Exception as e:
+        logger.exception("get-checklist endpoint failed")
         return {"error": str(e)}
 
 
@@ -355,19 +310,23 @@ async def get_checklist(body: ChecklistRequest):
 @app.post("/detect-conflict")
 async def detect_conflict_endpoint(body: ConflictRequest):
     try:
+        detect_conflicts, _ = get_conflict_detector()
         result = detect_conflicts(body.scheme_name)
         return {"status": "success", "conflict_analysis": result}
     except Exception as e:
+        logger.exception("detect-conflict endpoint failed")
         return {"error": str(e)}
 
 
 @app.post("/check-all-conflicts")
 async def check_all_conflicts_endpoint(body: AllConflictsRequest):
     try:
+        _, check_all_conflicts = get_conflict_detector()
         schemes_list = [s.strip() for s in body.schemes.split(",")]
         result = check_all_conflicts(schemes_list)
         return {"status": "success", "conflicts": result}
     except Exception as e:
+        logger.exception("check-all-conflicts endpoint failed")
         return {"error": str(e)}
 
 
@@ -381,6 +340,7 @@ async def upload_and_fill(
     document: UploadFile = File(...),
 ):
     try:
+        process_uploaded_document = get_form_filler()
         file_path = os.path.join(UPLOAD_DIR, document.filename)
         with open(file_path, "wb") as f:
             shutil.copyfileobj(document.file, f)
@@ -393,4 +353,12 @@ async def upload_and_fill(
             "filled_form": result["filled_form"],
         }
     except Exception as e:
+        logger.exception("upload-and-fill endpoint failed")
         return {"error": str(e)}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
