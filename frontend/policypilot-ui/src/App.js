@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { auth } from "./firebase";
 import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
+import LandingPage from "./LandingPage";
+import { useAuth } from "./contexts/AuthContext";
 
 /* ═══════════════════════════════════════════════════════════════
    CONFIG
@@ -1080,9 +1082,20 @@ export default function App() {
   const [chatsLoading,setChatsLoading]=useState(false);
   const [searchQuery,setSearchQuery]=useState("");
 
-  /* ── Firebase auth state (real) ── */
-  const [isLoggedIn,setIsLoggedIn]=useState(false);
-  const [authUser,setAuthUser]=useState(null);   // { name, email, photo, initials }
+  const { currentUser, loading: authLoading, googleSignIn, logout } = useAuth();
+  const [isGuest, setIsGuest] = useState(false);
+  
+  const isLoggedIn = !!currentUser || isGuest;
+
+  const authUser = currentUser ? {
+    name: currentUser.displayName || currentUser.email,
+    email: currentUser.email,
+    photo: currentUser.photoURL,
+    initials: currentUser.displayName 
+      ? currentUser.displayName.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()
+      : (currentUser.email ? currentUser.email[0].toUpperCase() : "U")
+  } : null;
+
   const [loginModal,setLoginModal]=useState(false);
   const [authDropdown,setAuthDropdown]=useState(false);
   const [toast,setToast]=useState(null);
@@ -1103,28 +1116,7 @@ export default function App() {
   const chatFileRef=useRef(null);
   const isCentralScope=schemeScope==="Central Schemes (All India)";
 
-  /* ── Listen to Firebase auth changes ── */
-  useEffect(() => {
-    if (!auth) return undefined;
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        const initials = firebaseUser.displayName
-          ? firebaseUser.displayName.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase()
-          : (firebaseUser.email ? firebaseUser.email[0].toUpperCase() : "U");
-        setAuthUser({
-          name: firebaseUser.displayName || firebaseUser.email,
-          email: firebaseUser.email,
-          photo: firebaseUser.photoURL,
-          initials,
-        });
-        setIsLoggedIn(true);
-      } else {
-        setAuthUser(null);
-        setIsLoggedIn(false);
-      }
-    });
-    return () => unsubscribe();
-  }, [auth]);
+  // Auth listener removed because AuthContext handles it now
 
   /* ── Close dropdown on outside click ── */
   useEffect(() => {
@@ -1137,24 +1129,18 @@ export default function App() {
 
   /* ── REAL Google Sign-In ── */
   const handleGoogleSignIn = useCallback(async () => {
-    if (!auth) {
-      showToast("⚠️ Firebase is not configured. Please set production environment variables.", "error");
-      return;
-    }
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      console.log("User:", result.user);
-      // onAuthStateChanged above will update state automatically
+      const result = await googleSignIn();
+      console.log("User:", result?.user);
       setLoginModal(false);
       showToast("✅ Signed in successfully! Your journey is saved.");
     } catch (err) {
-      console.error("Auth Error:", err.code, err.message);
-      if (err.code !== "auth/popup-closed-by-user") {
+      console.error("Auth Error:", err?.code, err?.message);
+      if (err?.code !== "auth/popup-closed-by-user") {
         showToast("⚠️ Sign-in failed. Please try again.", "error");
       }
     }
-  }, [auth]);
+  }, [googleSignIn]);
 
   /* ── DigiLocker / email fallback (UI mock) ── */
   const handleAuthSuccess = useCallback((method) => {
@@ -1164,15 +1150,15 @@ export default function App() {
 
   /* ── Logout ── */
   const handleLogout = useCallback(async () => {
-    if (!auth) return;
     try {
-      await signOut(auth);
+      await logout();
+      setIsGuest(false); // clear guest state too
       setAuthDropdown(false);
       showToast("You've been signed out.");
     } catch {
       showToast("⚠️ Sign-out failed.", "error");
     }
-  }, [auth]);
+  }, [logout]);
 
   /* ── Load chats ── */
   const loadChats = useCallback(async () => {
@@ -1340,6 +1326,32 @@ export default function App() {
       {!authUser?.photo && (authUser?.initials || "U")}
     </div>
   );
+
+  /* ── Auth gate: splash → landing → main app ── */
+  if (authLoading) {
+    return (
+      <>
+        <style>{CSS}</style>
+        <div style={{
+          minHeight:"100vh",background:"#0a1628",display:"flex",
+          alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16,
+        }}>
+          <div style={{width:52,height:52,border:"3px solid rgba(196,165,116,0.2)",borderTopColor:"#c4a574",borderRadius:"50%",animation:"spin 0.9s linear infinite"}}/>
+          <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
+          <span style={{fontSize:13,color:"rgba(196,165,116,0.6)",fontFamily:"DM Sans,sans-serif"}}>Loading PolicyPilot…</span>
+        </div>
+      </>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <LandingPage
+        onGoogleSignIn={handleGoogleSignIn}
+        onGuest={() => setIsGuest(true)}
+      />
+    );
+  }
 
   return (
     <>

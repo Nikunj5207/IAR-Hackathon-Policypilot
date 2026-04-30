@@ -29,12 +29,21 @@ const requiredKeys = [
 
 const missingKeys = requiredKeys.filter((key) => !process.env[key]);
 if (missingKeys.length > 0) {
-  throw new Error(`Missing Firebase environment variables: ${missingKeys.join(", ")}`);
+  console.warn(`⚠️ Missing Firebase environment variables: ${missingKeys.join(", ")}`);
 }
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const googleProvider = new GoogleAuthProvider();
+let app = null;
+let auth = null;
+let db = null;
+let googleProvider = null;
+
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  googleProvider = new GoogleAuthProvider();
+} catch (e) {
+  console.error("Failed to initialize Firebase:", e);
+}
 
 export { app, auth, db, googleProvider };

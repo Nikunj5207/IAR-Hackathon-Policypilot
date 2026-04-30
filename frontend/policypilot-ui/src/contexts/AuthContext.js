@@ -31,10 +31,18 @@ export function AuthProvider({ children }) {
   }
 
   function googleSignIn() {
+    if (!auth || !googleProvider) {
+      console.warn("Firebase auth not configured. Cannot sign in.");
+      return Promise.reject(new Error("Firebase auth not configured"));
+    }
     return signInWithPopup(auth, googleProvider);
   }
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return undefined;
+    }
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setLoading(false);
