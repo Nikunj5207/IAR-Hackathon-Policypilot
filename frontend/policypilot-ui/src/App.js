@@ -865,7 +865,7 @@ function SmartTyping() {
     <div className="ai-thinking">
       <div className="thinking-msg">
         <span className="thinking-emoji">⏳</span>
-        <span>{msg} ({elapsed}s)</span>
+        <span>{msg}</span>
       </div>
       <div className="shimmer-lines">
         {[100, 80, 60].map((w, i) => <div key={i} className="shimmer-line" style={{ width:`${w}%`, animationDelay:`${i*0.15}s` }}/>)}
@@ -1263,22 +1263,23 @@ export default function App() {
     setMessages([{role:"user",text:profileText,time:fmtTime()}]);
     setCurrentStep("schemes"); setTyping(true); setResults([]); setVisibleCards([]); setApiError(null);
     const langInstructions = {
-      hi: "Please respond completely in Hindi (हिंदी में जवाब दें). All scheme names, benefits, steps must be in Hindi.",
+      hi: "IMPORTANT: You MUST respond entirely in Hindi (हिंदी). Every word of your response must be in Hindi only.",
       bn: "Please respond completely in Bengali (বাংলায় উত্তর দিন). All scheme names, benefits, steps must be in Bengali.",
-      te: "Please respond completely in Telugu (తెలుగులో సమాధానం ఇవ్వండి). All scheme names, benefits, steps must be in Telugu.",
-      mr: "Please respond completely in Marathi (मराठीत उत्तर द्या). All scheme names, benefits, steps must be in Marathi.",
-      ta: "Please respond completely in Tamil (தமிழில் பதிலளிக்கவும்). All scheme names, benefits, steps must be in Tamil.",
-      gu: "Please respond completely in Gujarati (ગુજરાતીમાં जवाब આપો). All scheme names, benefits, steps must be in Gujarati.",
-      kn: "Please respond completely in Kannada (ಕನ್ನಡದಲ್ಲಿ ಉತ್ತರಿಸಿ). All scheme names, benefits, steps must be in Kannada.",
+      te: "IMPORTANT: You MUST respond entirely in Telugu (తెలుగు). Every word of your response must be in Telugu only.",
+      mr: "IMPORTANT: You MUST respond entirely in Marathi (मराठी). Every word of your response must be in Marathi only.",
+      ta: "IMPORTANT: You MUST respond entirely in Tamil (தமிழ்). Every word of your response must be in Tamil only.",
+      gu: "IMPORTANT: You MUST respond entirely in Gujarati (ગુજરાતી). Every word of your response must be in Gujarati only.",
+      kn: "IMPORTANT: You MUST respond entirely in Kannada (ಕನ್ನಡ). Every word of your response must be in Kannada only.",
       ml: "Please respond completely in Malayalam (മലയാളത്തിൽ മറുപടി പറയൂ). All scheme names, benefits, steps must be in Malayalam.",
       or: "Please respond completely in Odia (ଓଡ଼ିଆରେ ଉତ୍ତର ଦିଅ). All scheme names, benefits, steps must be in Odia.",
       pa: "Please respond completely in Punjabi (ਪੰਜਾਬੀ ਵਿੱਚ ਜਵਾਬ ਦਿਓ). All scheme names, benefits, steps must be in Punjabi.",
       as: "Please respond completely in Assamese (অসমীয়াত উত্তৰ দিয়ক). All scheme names, benefits, steps must be in Assamese.",
     };
-    const langNote = langInstructions[lang] || "";
+    // Default is English — only append instruction for non-English
+    const langNote = lang !== "en" ? (langInstructions[lang] || "") : "";
     const profileWithLang = langNote
-      ? `${profileText}\n\n[Language instruction: ${langNote}]`
-      : profileText;
+      ? `${profileText}\n\n${langNote}`
+      : profileText; // English — send as-is, no language tag
     try {
       const data=await apiFindSchemes(profileWithLang,chatId,lang);
       console.log(data);
@@ -1326,22 +1327,23 @@ export default function App() {
     setMessages(prev=>[...(Array.isArray(prev)?prev:[]),userMsg]);
     setCurrentStep("schemes"); setTyping(true); setResults([]); setVisibleCards([]);
     const langInstructions = {
-      hi: "Please respond completely in Hindi (हिंदी में जवाब दें). All scheme names, benefits, steps must be in Hindi.",
+      hi: "IMPORTANT: You MUST respond entirely in Hindi (हिंदी). Every word of your response must be in Hindi only.",
       bn: "Please respond completely in Bengali (বাংলায় উত্তর দিন). All scheme names, benefits, steps must be in Bengali.",
-      te: "Please respond completely in Telugu (తెలుగులో సమాధానం ఇవ్వండి). All scheme names, benefits, steps must be in Telugu.",
-      mr: "Please respond completely in Marathi (मराठीत उत्तर द्या). All scheme names, benefits, steps must be in Marathi.",
-      ta: "Please respond completely in Tamil (தமிழில் பதிலளிக்கவும்). All scheme names, benefits, steps must be in Tamil.",
-      gu: "Please respond completely in Gujarati (ગુજરાતીમાં जवाब આપો). All scheme names, benefits, steps must be in Gujarati.",
-      kn: "Please respond completely in Kannada (ಕನ್ನಡದಲ್ಲಿ ಉತ್ತರಿಸಿ). All scheme names, benefits, steps must be in Kannada.",
+      te: "IMPORTANT: You MUST respond entirely in Telugu (తెలుగు). Every word of your response must be in Telugu only.",
+      mr: "IMPORTANT: You MUST respond entirely in Marathi (मराठी). Every word of your response must be in Marathi only.",
+      ta: "IMPORTANT: You MUST respond entirely in Tamil (தமிழ்). Every word of your response must be in Tamil only.",
+      gu: "IMPORTANT: You MUST respond entirely in Gujarati (ગુજરાતી). Every word of your response must be in Gujarati only.",
+      kn: "IMPORTANT: You MUST respond entirely in Kannada (ಕನ್ನಡ). Every word of your response must be in Kannada only.",
       ml: "Please respond completely in Malayalam (മലയാളത്തിൽ മറുപടി പറയൂ). All scheme names, benefits, steps must be in Malayalam.",
       or: "Please respond completely in Odia (ଓଡ଼ିଆରେ ଉତ୍ତર ଦିଅ). All scheme names, benefits, steps must be in Odia.",
       pa: "Please respond completely in Punjabi (ਪੰਜਾਬੀ ਵਿੱਚ ਜਵਾਬ ਦਿਓ). All scheme names, benefits, steps must be in Punjabi.",
       as: "Please respond completely in Assamese (অসমীয়াত উত্তৰ দিয়ক). All scheme names, benefits, steps must be in Assamese.",
     };
-    const langNote = langInstructions[lang] || "";
+    // Default is English — only append instruction for non-English
+    const langNote = lang !== "en" ? (langInstructions[lang] || "") : "";
     const profileWithLang = langNote
-      ? `${msg}\n\n[Language instruction: ${langNote}]`
-      : msg;
+      ? `${msg}\n\n${langNote}`
+      : msg; // English — send as-is, no language tag
     try {
       const data=await apiFindSchemes(profileWithLang,chatId,lang);
       console.log(data);
@@ -1470,7 +1472,16 @@ export default function App() {
             <div className="hdr-r">
               <div className="lang-wrap">
                 <label className="lang-lbl" htmlFor="lang-s">{t("language")}</label>
-                <select id="lang-s" className="lang-sel" value={lang} onChange={e=>setLang(e.target.value)}>
+                <select id="lang-s" className="lang-sel" value={lang}
+                  onChange={e => {
+                    setLang(e.target.value);
+                    // Clear messages so next response uses new language
+                    setMessages(null);
+                    setResults([]);
+                    setVisibleCards([]);
+                    setApiError(null);
+                    setCurrentStep("profile");
+                  }}>
                   {LANGUAGES.map(l=><option key={l.code} value={l.code}>{l.label}</option>)}
                 </select>
               </div>
@@ -1590,8 +1601,19 @@ export default function App() {
                   <div className="empty-ttl">{t("emptyTitle")}</div>
                   <p className="empty-sub">{t("emptySub")}</p>
                   <div className="quick-chips" style={{justifyContent:"center"}}>
-                    {STARTERS.map((q,i)=>(
-                      <button key={i} type="button" className="chip" onClick={()=>handleSend(q)}>{q}</button>
+                    {(lang === "hi" ? [
+                      "मैं गुजरात में 2 एकड़ का छोटा किसान हूं",
+                      "मुझे अपने परिवार के लिए स्वास्थ्य सहायता चाहिए",
+                      "मेरी बेटी के लिए शिक्षा छात्रवृत्ति खोजें",
+                      "मैं एक छोटा स्ट्रीट फूड स्टॉल चलाता हूं"
+                    ] : lang === "gu" ? [
+                      "હું ગુજરાતમાં 2 એકર જમીન ધરાવતો નાનો ખેડૂત છું",
+                      "મારા પરિવાર માટે આरोग्य सहाय जोईએ",
+                      "મારી દીકરી માટે શિષ્યવૃત્તિ શોધો",
+                      "હું નાની શેરી ખાણ-પીણીની દુકान चलावुं छुं"
+                    ] : STARTERS).map((q, i) => (
+                      <button key={i} type="button" className="chip"
+                        onClick={() => handleSend(q)}>{q}</button>
                     ))}
                   </div>
                   <button type="button" className="find-schemes-cta" onClick={()=>setProfile(true)}>
@@ -1630,8 +1652,21 @@ export default function App() {
                         <div className="ai-card">
                           <p className="ai-txt">{msg?.text || "Here are your matched schemes."}</p>
                           <div className="quick-chips">
-                            {["Tell me about PM Kisan documents","How to apply for Ayushman Bharat","What's the scholarship deadline?"].map((q,qi)=>(
-                              <button key={qi} type="button" className="chip" onClick={()=>handleSend(q)}>{q}</button>
+                            {(lang === "hi" ? [
+                              "PM Kisan के दस्तावेज़ बताएं",
+                              "Ayushman Bharat के लिए आवेदन कैसे करें",
+                              "छात्रवृत्ति की अंतिम तिथि क्या है?"
+                            ] : lang === "gu" ? [
+                              "PM Kisan ના દસ્તાવેજો જણાવો",
+                              "Ayushman Bharat માટे अरजी कैसे करवी",
+                              "શિષ્યવૃત્તિની છેલ્લી તારીખ શું છે?"
+                            ] : [
+                              "Tell me about PM Kisan documents",
+                              "How to apply for Ayushman Bharat",
+                              "What's the scholarship deadline?"
+                            ]).map((q, qi) => (
+                              <button key={qi} type="button" className="chip"
+                                onClick={() => handleSend(q)}>{q}</button>
                             ))}
                           </div>
                         </div>
