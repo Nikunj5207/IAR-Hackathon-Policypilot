@@ -1262,8 +1262,25 @@ export default function App() {
     setInputVal("");
     setMessages([{role:"user",text:profileText,time:fmtTime()}]);
     setCurrentStep("schemes"); setTyping(true); setResults([]); setVisibleCards([]); setApiError(null);
+    const langInstructions = {
+      hi: "Please respond completely in Hindi (हिंदी में जवाब दें). All scheme names, benefits, steps must be in Hindi.",
+      bn: "Please respond completely in Bengali (বাংলায় উত্তর দিন). All scheme names, benefits, steps must be in Bengali.",
+      te: "Please respond completely in Telugu (తెలుగులో సమాధానం ఇవ్వండి). All scheme names, benefits, steps must be in Telugu.",
+      mr: "Please respond completely in Marathi (मराठीत उत्तर द्या). All scheme names, benefits, steps must be in Marathi.",
+      ta: "Please respond completely in Tamil (தமிழில் பதிலளிக்கவும்). All scheme names, benefits, steps must be in Tamil.",
+      gu: "Please respond completely in Gujarati (ગુજરાતીમાં जवाब આપો). All scheme names, benefits, steps must be in Gujarati.",
+      kn: "Please respond completely in Kannada (ಕನ್ನಡದಲ್ಲಿ ಉತ್ತರಿಸಿ). All scheme names, benefits, steps must be in Kannada.",
+      ml: "Please respond completely in Malayalam (മലയാളത്തിൽ മറുപടി പറയൂ). All scheme names, benefits, steps must be in Malayalam.",
+      or: "Please respond completely in Odia (ଓଡ଼ିଆରେ ଉତ୍ତର ଦିଅ). All scheme names, benefits, steps must be in Odia.",
+      pa: "Please respond completely in Punjabi (ਪੰਜਾਬੀ ਵਿੱਚ ਜਵਾਬ ਦਿਓ). All scheme names, benefits, steps must be in Punjabi.",
+      as: "Please respond completely in Assamese (অসমীয়াত উত্তৰ দিয়ক). All scheme names, benefits, steps must be in Assamese.",
+    };
+    const langNote = langInstructions[lang] || "";
+    const profileWithLang = langNote
+      ? `${profileText}\n\n[Language instruction: ${langNote}]`
+      : profileText;
     try {
-      const data=await apiFindSchemes(profileText,chatId,lang);
+      const data=await apiFindSchemes(profileWithLang,chatId,lang);
       console.log(data);
       setTyping(false);
       if(data?.error){
@@ -1308,8 +1325,25 @@ export default function App() {
     setChatFile(null);
     setMessages(prev=>[...(Array.isArray(prev)?prev:[]),userMsg]);
     setCurrentStep("schemes"); setTyping(true); setResults([]); setVisibleCards([]);
+    const langInstructions = {
+      hi: "Please respond completely in Hindi (हिंदी में जवाब दें). All scheme names, benefits, steps must be in Hindi.",
+      bn: "Please respond completely in Bengali (বাংলায় উত্তর দিন). All scheme names, benefits, steps must be in Bengali.",
+      te: "Please respond completely in Telugu (తెలుగులో సమాధానం ఇవ్వండి). All scheme names, benefits, steps must be in Telugu.",
+      mr: "Please respond completely in Marathi (मराठीत उत्तर द्या). All scheme names, benefits, steps must be in Marathi.",
+      ta: "Please respond completely in Tamil (தமிழில் பதிலளிக்கவும்). All scheme names, benefits, steps must be in Tamil.",
+      gu: "Please respond completely in Gujarati (ગુજરાતીમાં जवाब આપો). All scheme names, benefits, steps must be in Gujarati.",
+      kn: "Please respond completely in Kannada (ಕನ್ನಡದಲ್ಲಿ ಉತ್ತರಿಸಿ). All scheme names, benefits, steps must be in Kannada.",
+      ml: "Please respond completely in Malayalam (മലയാളത്തിൽ മറുപടി പറയൂ). All scheme names, benefits, steps must be in Malayalam.",
+      or: "Please respond completely in Odia (ଓଡ଼ିଆରେ ଉତ୍ତર ଦିଅ). All scheme names, benefits, steps must be in Odia.",
+      pa: "Please respond completely in Punjabi (ਪੰਜਾਬੀ ਵਿੱਚ ਜਵਾਬ ਦਿਓ). All scheme names, benefits, steps must be in Punjabi.",
+      as: "Please respond completely in Assamese (অসমীয়াত উত্তৰ দিয়ক). All scheme names, benefits, steps must be in Assamese.",
+    };
+    const langNote = langInstructions[lang] || "";
+    const profileWithLang = langNote
+      ? `${msg}\n\n[Language instruction: ${langNote}]`
+      : msg;
     try {
-      const data=await apiFindSchemes(msg,chatId,lang);
+      const data=await apiFindSchemes(profileWithLang,chatId,lang);
       console.log(data);
       setTyping(false);
       if(data?.error){
