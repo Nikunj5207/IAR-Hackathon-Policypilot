@@ -798,7 +798,7 @@ function StepTracker({currentStep,isLoggedIn}) {
 /* ═══════════════════════════════════════════════════════════════
    RESULT CARD
 ═══════════════════════════════════════════════════════════════ */
-function ResultCard({scheme,idx,visible}) {
+function ResultCard({scheme,idx,visible,onViewChecklist}) {
   const [explainOpen,setExplainOpen]=useState(false);
   return (
     <div className={`rc${visible?" visible":""}`} style={{animationDelay:visible?`${idx*120}ms`:"0ms"}}>
@@ -835,7 +835,13 @@ function ResultCard({scheme,idx,visible}) {
           </div>
         </>
       )}
-      <button type="button" className="rc-cta">View Checklist →</button>
+      <button
+        type="button"
+        className="rc-cta"
+        onClick={() => onViewChecklist && onViewChecklist(scheme)}
+      >
+        View Checklist →
+      </button>
     </div>
   );
 }
@@ -1111,6 +1117,8 @@ export default function App() {
   const [residenceType,setResidenceType]=useState(null);
   const [schemeScope,setSchemeScope]=useState("Central Schemes (All India)");
   const [formState,setFormState]=useState("Gujarat");
+  const [age, setAge] = useState(18);
+  const [checklistModal, setChecklistModal] = useState(null);
 
   const t=useT(lang);
   const canvasRef=useRef(null);
@@ -1665,7 +1673,20 @@ export default function App() {
                   <p className="rp-empty-txt">{t("schemeResultsHint")}</p>
                 </div>
               ):(
-                results.map((s,i)=><ResultCard key={s.id||i} scheme={s} idx={i} visible={visibleCards.includes(i)}/>)
+                results.map((s,i)=>
+                  <ResultCard
+                    key={s.id||i}
+                    scheme={s}
+                    idx={i}
+                    visible={visibleCards.includes(i)}
+                    onViewChecklist={(scheme) =>
+                      setChecklistModal({
+                        title: scheme.title,
+                        items: scheme.applicationChecklist || []
+                      })
+                    }
+                  />
+                )
               )}
             </div>
           </aside>
@@ -1723,7 +1744,42 @@ export default function App() {
 
               <FSec {...FSECS_BASE[0]} label={t("personalInfo")}>
                 <FField label="Full Name" required><FInput type="text" placeholder="As on Aadhaar"/></FField>
-                <FField label="Age" required><FInput type="text" inputMode="numeric" placeholder="Years"/></FField>
+                  <FField label="Age" required>
+                    <div style={{display:"flex", flexDirection:"column", gap:6}}>
+                      <div style={{
+                        display:"flex", justifyContent:"space-between",
+                        alignItems:"center"
+                      }}>
+                        <span style={{
+                          fontSize:13, fontWeight:700, color:"var(--navy)"
+                        }}>
+                          {age || 18} years old
+                        </span>
+                        <span style={{fontSize:11, color:"var(--text-muted)"}}>
+                          1 — 100
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        className="income-range"
+                        min="1"
+                        max="100"
+                        step="1"
+                        value={age || 18}
+                        onChange={e => setAge(Number(e.target.value))}
+                      />
+                      <div style={{
+                        display:"flex", justifyContent:"space-between",
+                        fontSize:10, color:"var(--text-muted)"
+                      }}>
+                        <span>1</span>
+                        <span>25</span>
+                        <span>50</span>
+                        <span>75</span>
+                        <span>100</span>
+                      </div>
+                    </div>
+                  </FField>
               </FSec>
 
               <FSec {...FSECS_BASE[1]} label={t("economicProfile")}>
@@ -1781,6 +1837,7 @@ export default function App() {
               <button type="button" className="btn-sec">{t("uploadMoreDocs")}</button>
               <button type="button" className="btn-pri" onClick={()=>{
                 const parts=[];
+                if(age) parts.push(`${age} years old`);
                 if(gender) parts.push(gender.toLowerCase());
                 if(education) parts.push(education.toLowerCase());
                 if(residenceType) parts.push(`${residenceType.toLowerCase()} area`);
@@ -1807,6 +1864,47 @@ export default function App() {
         {toast&&<div className={`toast${toast.type==="error"?" error":""}`}>{toast.msg}</div>}
 
       </div>
+      {checklistModal && (
+        <div className="modal-overlay" onClick={() => setChecklistModal(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}
+            style={{maxWidth:500}}>
+            <div className="modal-head">
+              <h3>📋 {checklistModal.title}</h3>
+              <button type="button" className="modal-close"
+                onClick={() => setChecklistModal(null)}>×</button>
+            </div>
+            <div className="modal-body" style={{gap:10}}>
+              <p style={{fontSize:12.5, color:"var(--text-muted)", marginBottom:4}}>
+                Step-by-step application checklist:
+              </p>
+              {checklistModal.items.map((item, i) => (
+                <div key={i} style={{
+                  display:"flex", alignItems:"flex-start", gap:10,
+                  padding:"10px 12px",
+                  background: i % 2 === 0 ? "var(--bg-app)" : "var(--surface-card)",
+                  borderRadius:8, fontSize:13, color:"var(--text)", lineHeight:1.5
+                }}>
+                  <span style={{
+                    minWidth:22, height:22, borderRadius:"50%",
+                    background:"var(--navy)", color:"var(--gold)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:10, fontWeight:700, flexShrink:0
+                  }}>{i + 1}</span>
+                  {item}
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn-pri"
+                style={{marginTop:8}}
+                onClick={() => setChecklistModal(null)}
+              >
+                Got it ✓
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -25,7 +25,7 @@ pincode, income, caste, occupation, land_holding, bank_account, ifsc_code
 Use null for missing fields."""
     try:
         response = client.chat.completions.create(
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=1000
         )
@@ -43,7 +43,7 @@ bank details, declaration, documents checklist, submission instructions.
 Write [TO BE FILLED BY APPLICANT] for missing info."""
     try:
         response = client.chat.completions.create(
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=2000
         )

@@ -215,6 +215,15 @@ async def find_schemes_endpoint(body: FindSchemesRequest):
 
         t2 = time.time()
         result = find_schemes(body.citizen_profile, preferred_language=lang)
+        if result.get("validation_error"):
+            return {
+                "status": "validation_error",
+                "schemes": [],
+                "message": result.get("message", "Please provide valid details."),
+                "conflicts": [],
+                "summary": result.get("summary", ""),
+                "checklists": [],
+            }
         if result.get("error"):
             raise Exception(result["error"])
         logger.info("[find-schemes] find_schemes() completed in %.2fs", time.time() - t2)

@@ -124,13 +124,94 @@ def _infer_category(title: str) -> str:
         return "Labour"
     return "Finance"
 
+from datetime import datetime, date
+import re
+
+def _validate_citizen_profile(citizen_profile: str) -> dict:
+    text = citizen_profile.lower().strip()
+
+    # Too short
+    if len(text) < 10:
+        return {"valid": False, "reason": "Please describe your situation in more detail."}
+
+    # Future or impossible birth date
+    today = date.today()
+    date_patterns = [
+        r"\b(\d{2})[\/\-](\d{2})[\/\-](\d{4})\b",
+        r"\b(\d{4})[\/\-](\d{2})[\/\-](\d{2})\b",
+    ]
+    for pattern in date_patterns:
+        for match in re.findall(pattern, text):
+            try:
+                d = datetime.strptime(
+                    f"{match[0]}-{match[1]}-{match[2]}", "%d-%m-%Y"
+                ).date()
+                if d >= today:
+                    return {"valid": False, "reason": f"Date of birth {d.strftime('%d %b %Y')} is today or in the future. Please enter your actual date of birth."}
+                age = (today - d).days // 365
+                if age > 120:
+                    return {"valid": False, "reason": f"Age of {age} years seems incorrect. Please enter a valid date of birth."}
+            except ValueError:
+                pass
+
+    # Impossible age mentioned directly
+    age_match = re.search(r"\b(\d+)\s*(year|yr|years old|age)\b", text)
+    if age_match:
+        age = int(age_match.group(1))
+        if age <= 0 or age > 120:
+            return {"valid": False, "reason": f"Age {age} is not valid. Please enter your correct age between 1 and 120."}
+
+    # Negative or impossibly high income
+    income_match = re.search(r"income\s*[\=\:\s]*(rs\.?|₹|inr)?\s*([\d,]+)", text)
+    if income_match:
+        try:
+            income = int(income_match.group(2).replace(",", ""))
+            if income < 0:
+                return {"valid": False, "reason": "Income cannot be negative. Please enter a valid annual income."}
+            if income > 100000000:
+                return {"valid": False, "reason": "Income above ₹10 crore is outside scheme eligibility range."}
+        except ValueError:
+            pass
+
+    # Gibberish detection
+    gibberish = ["asdf", "qwerty", "test123", "abc123", "lorem ipsum", "xyzxyz"]
+    if any(g in text for g in gibberish):
+        return {"valid": False, "reason": "Please describe your actual situation to find matching schemes."}
+
+    # Only special characters or numbers
+    if not re.search(r"[a-zA-Z]{3,}", citizen_profile):
+        return {"valid": False, "reason": "Please describe your situation in words."}
+
+    return {"valid": True}
+
+
+def _build_validation_response(reason: str, preferred_language: str) -> dict:
+    if preferred_language.startswith("hi"):
+        message = f"⚠️ {reason} कृपया सही जानकारी दें।"
+    elif preferred_language.startswith("gu"):
+        message = f"⚠️ {reason} કૃપા કરીને સાચી માહિતી આપો।"
+    else:
+        message = f"⚠️ {reason} Please provide accurate details so I can find the right schemes for you."
+    return {
+        "message": message,
+        "schemes": [],
+        "conflicts": [],
+        "summary": reason,
+        "validation_error": True
+    }
+
 def find_schemes(citizen_profile: str, preferred_language: str = "en") -> dict:
+    validation = _validate_citizen_profile(citizen_profile)
+    if not validation["valid"]:
+        logger.warning(f"[agent] Invalid input: {validation['reason']}")
+        return _build_validation_response(validation["reason"], preferred_language)
+
     from langchain_groq import ChatGroq
     from rag_engine import get_vectorstore
     import json
 
     llm = ChatGroq(
-        model="llama3-8b-8192",
+        model="llama-3.1-8b-instant",
         temperature=0.1,
         max_tokens=4000,
         groq_api_key=os.environ.get("GROQ_API_KEY"),
@@ -348,7 +429,7 @@ Always cite the source document and page number for each point.
 
     groq_client = get_groq_client()
     response = groq_client.chat.completions.create(
-        model="llama3-8b-8192",
+        model="llama-3.1-8b-instant",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=1000,
         temperature=0.1,
