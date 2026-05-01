@@ -428,7 +428,11 @@ def find_schemes(citizen_profile: str, preferred_language: str = "en"):
     from rag_engine import get_vectorstore
     vectorstore = get_vectorstore()
     print(f"[agent] vectorstore ready in {_t.time()-_t0:.2f}s")
-    results = vectorstore.similarity_search(citizen_profile, k=10)
+    try:
+        results = vectorstore.similarity_search(citizen_profile, k=10)
+    except Exception as e:
+        print(f"[agent] Vectorstore search failed: {e} — using LLM directly")
+        results = []
 
     context = ""
     sources = []
@@ -554,9 +558,13 @@ RULES:
 def generate_application_checklist(scheme_name: str, citizen_profile: str):
     from rag_engine import get_vectorstore
     vectorstore = get_vectorstore()
-    results = vectorstore.similarity_search(
-        f"{scheme_name} application documents required", k=5
-    )
+    try:
+        results = vectorstore.similarity_search(
+            f"{scheme_name} application documents required", k=5
+        )
+    except Exception as e:
+        print(f"[agent] Vectorstore search failed: {e}")
+        results = []
 
     context = ""
     for doc in results:

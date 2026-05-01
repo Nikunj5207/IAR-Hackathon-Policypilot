@@ -17,7 +17,9 @@ def get_embeddings():
     if _EMBEDDINGS is None:
         _EMBEDDINGS = GoogleGenerativeAIEmbeddings(
             model="models/text-embedding-004",
-            google_api_key=os.getenv("GEMINI_API_KEY")
+            google_api_key=os.environ.get("GEMINI_API_KEY"),
+            client_options={"api_endpoint": "generativelanguage.googleapis.com"},
+            transport="rest",
         )
     return _EMBEDDINGS
 
