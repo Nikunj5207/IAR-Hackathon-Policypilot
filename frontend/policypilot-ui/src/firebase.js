@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey:            process.env.REACT_APP_FIREBASE_API_KEY,
@@ -12,13 +13,10 @@ const firebaseConfig = {
   measurementId:     process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
-console.log("FIREBASE CONFIG:", {
-  apiKey: firebaseConfig.apiKey,
-  authDomain: firebaseConfig.authDomain
-});
-
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
+export const analytics = typeof window !== "undefined" ? getAnalytics(app) : null;
+
 export default app;
