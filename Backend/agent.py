@@ -500,7 +500,7 @@ RULES:
     try:
         groq_client = get_groq_client()
         response = groq_client.chat.completions.create(
-            model="gemma2-9b-it",
+            model="llama3-8b-8192",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=400,
             temperature=0.1,

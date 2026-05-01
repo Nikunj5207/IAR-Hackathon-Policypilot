@@ -2,7 +2,7 @@ import os
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.embeddings import FakeEmbeddings
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,18 +15,16 @@ _VECTORSTORE = None
 def get_embeddings():
     global _EMBEDDINGS
     if _EMBEDDINGS is None:
-        _EMBEDDINGS = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004",
-            google_api_key=os.environ.get("GEMINI_API_KEY"),
-            client_options={"api_endpoint": "generativelanguage.googleapis.com"},
-            transport="rest",
-        )
+        _EMBEDDINGS = FakeEmbeddings(size=768)
     return _EMBEDDINGS
 
 def load_and_index_pdfs():
     print("Loading PDFs...")
     all_docs = []
     
+    if not os.path.exists(PDFS_DIR):
+        os.makedirs(PDFS_DIR)
+
     for filename in os.listdir(PDFS_DIR):
         if filename.endswith(".pdf"):
             filepath = os.path.join(PDFS_DIR, filename)
@@ -37,6 +35,10 @@ def load_and_index_pdfs():
             all_docs.extend(docs)
             print(f"✅ Loaded: {filename}")
     
+    if not all_docs:
+        print("No PDFs found to index.")
+        return None
+
     print(f"Total pages loaded: {len(all_docs)}")
     
     splitter = RecursiveCharacterTextSplitter(
@@ -47,7 +49,7 @@ def load_and_index_pdfs():
     print(f"Total chunks: {len(chunks)}")
     
     embeddings = get_embeddings()
-    print("⏳ Embedding shuru ho rahi hai...")
+    print("⏳ Embedding started (FakeEmbeddings - zero RAM)...")
     
     vectorstore = Chroma.from_documents(
         documents=chunks,
