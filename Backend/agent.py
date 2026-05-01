@@ -221,11 +221,24 @@ def _is_invalid_input(citizen_profile: str) -> tuple[bool, str]:
     return False, ""
 
 
+SCHEME_KEYWORDS = [
+    "ujjwala", "pm kisan", "ayushman", "pmay", "mnrega", "mudra",
+    "sukanya", "jan dhan", "fasal bima", "svandhi", "e-shram",
+    "scholarship", "nsp", "kisan credit", "atal pension", "awas", "insurance", "pension"
+]
+
 def _needs_more_info(citizen_profile: str) -> tuple[bool, str]:
     text = _normalize_text(citizen_profile)
+    
+    # If user mentions a specific scheme, don't block for more info
+    is_scheme_query = any(kw in text for kw in SCHEME_KEYWORDS)
+    if is_scheme_query:
+        return False, ""
+
     has_income = bool(re.search(r"\b(income|lakh|rupee|salary|rs\.?)\b", text))
-    has_state = bool(re.search(r"\b(gujarat|rajasthan|maharashtra|delhi|bihar|state|district)\b", text))
-    has_occupation = bool(re.search(r"\b(farmer|student|worker|labour|business|vendor|self employed|unemployed)\b", text))
+    has_state = bool(re.search(r"\b(gujarat|rajasthan|maharashtra|delhi|bihar|state|district|up|mp|punjab|haryana|tamil|kerala|karnataka|andhra|telangana|bengal|assam|odisha)\b", text))
+    has_occupation = bool(re.search(r"\b(farmer|student|worker|labour|business|vendor|self employed|unemployed|government|private|service|retired|widow)\b", text))
+    
     if sum([has_income, has_state, has_occupation]) < 2:
         return True, "Please share your income range, state, and occupation so I can match schemes accurately."
     return False, ""
@@ -427,7 +440,14 @@ def find_schemes(citizen_profile: str, preferred_language: str = "en"):
         sources.append(doc.metadata.get("source_file", "Unknown"))
 
     prompt = f"""
-You are PolicyPilot — an AI assistant helping Indian citizens find government schemes.
+You are PolicyPilot — an expert AI assistant for Indian government welfare schemes.
+
+STRICT RULES:
+1. If the user asks about a SPECIFIC scheme by name (e.g. Ujjwala Yojana, PM Kisan, Ayushman Bharat) → explain that scheme in detail IMMEDIATELY based on the documents. Never ask for profile info in this case.
+2. If the user describes their situation (farmer, student, woman, BPL etc.) → match and recommend relevant schemes.
+3. NEVER ask for income/state/occupation more than ONCE per conversation.
+4. NEVER give the same "please share your profile" response repeatedly.
+5. If you already asked for profile info and user hasn't provided it → just recommend the top 5 most popular schemes anyway.
 
 Citizen Profile:
 {citizen_profile}
@@ -465,16 +485,6 @@ Category color mapping (use these EXACTLY):
 - Women:        tagColor "#9b2d5a", tagBg "rgba(155,45,90,0.10)"
 - Finance:      tagColor "#0f5e6e", tagBg "rgba(15,94,110,0.10)"
 - Labour:       tagColor "#4a6e2d", tagBg "rgba(74,110,45,0.10)"
-
-Guidance object example:
-{{
-  "intro": "Based on your situation, here's how to proceed:",
-  "steps": [
-    "Gather your Aadhaar card and bank passbook...",
-    "Get an income certificate from your tehsildar..."
-  ],
-  "followUp": "Would you like me to guide you through any specific scheme?"
-}}
 
 RULES:
 - Only recommend schemes based on the documents provided

@@ -215,6 +215,11 @@ async def find_schemes_endpoint(body: FindSchemesRequest):
 
         t2 = time.time()
         result = find_schemes(body.citizen_profile, preferred_language=lang)
+        # -- Fallback --
+        from agent import SCHEME_KEYWORDS
+        intro_text = (result.get("guidance", {}) or {}).get("intro", "").lower()
+        if any(p in intro_text for p in ["income", "state", "occupation"]) and any(kw in body.citizen_profile.lower() for kw in SCHEME_KEYWORDS):
+            result = find_schemes(f"Direct info for: {body.citizen_profile}", preferred_language=lang)
         logger.info("[find-schemes] find_schemes() completed in %.2fs", time.time() - t2)
 
         schemes = result.get("schemes", [])
