@@ -3,28 +3,22 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAau3nqRWq8pFXNRDUMKa9Uw0UEhlvxio",
-  authDomain: "iar-hackathon.firebaseapp.com",
-  projectId: "iar-hackathon",
-  storageBucket: "iar-hackathon.appspot.com",
-  messagingSenderId: "660291936018",
-  appId: "1:660291936018:web:16e6133038365563b71dcb",
-  measurementId: "G-E808N1317S"
+  apiKey:            process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain:        process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId:         process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket:     process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId:             process.env.REACT_APP_FIREBASE_APP_ID,
+  measurementId:     process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
+console.log("FIREBASE CONFIG:", {
+  apiKey: firebaseConfig.apiKey,
+  authDomain: firebaseConfig.authDomain
+});
 
-let app = null;
-let auth = null;
-let db = null;
-let googleProvider = null;
-
-try {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  googleProvider = new GoogleAuthProvider();
-} catch (e) {
-  console.error("Failed to initialize Firebase:", e);
-}
-
-export { app, auth, db, googleProvider };
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const googleProvider = new GoogleAuthProvider();
+export default app;
