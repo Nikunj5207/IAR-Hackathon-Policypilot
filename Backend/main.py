@@ -14,6 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
+# Top-level imports for performance on Render free tier
+from rag_engine import load_and_index_pdfs, get_vectorstore
+from agent import find_schemes, generate_application_checklist
+from conflict_detector import detect_conflicts, check_all_conflicts
+from form_filler import process_uploaded_document
+
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("policypilot.main")
@@ -66,22 +72,18 @@ chats_store = {}
 
 
 def get_rag_engine():
-    from rag_engine import load_and_index_pdfs, get_vectorstore
     return load_and_index_pdfs, get_vectorstore
 
 
 def get_agent():
-    from agent import find_schemes, generate_application_checklist
     return find_schemes, generate_application_checklist
 
 
 def get_conflict_detector():
-    from conflict_detector import detect_conflicts, check_all_conflicts
     return detect_conflicts, check_all_conflicts
 
 
 def get_form_filler():
-    from form_filler import process_uploaded_document
     return process_uploaded_document
 
 # ── Pydantic models ───────────────────────────────────────────
@@ -115,7 +117,7 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "healthy"}
+    return {"status": "ok"}
 
 @app.post("/index-pdfs")
 def index_pdfs():

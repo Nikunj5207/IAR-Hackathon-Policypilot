@@ -841,25 +841,25 @@ function ResultCard({scheme,idx,visible}) {
 
 /* AI Thinking */
 function SmartTyping() {
-  const [step, setStep] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const start = Date.now();
-    const elapsedIv = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
-    const stepIv   = setInterval(() => setStep(s => Math.min(s + 1, THINKING_MESSAGES.length - 1)), 4000);
-    return () => { clearInterval(elapsedIv); clearInterval(stepIv); };
+    const iv = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(iv);
   }, []);
+
+  let msg = "Connecting to PolicyPilot...";
+  if (elapsed >= 5 && elapsed < 15) msg = "AI is processing your profile...";
+  else if (elapsed >= 15 && elapsed < 35) msg = "Finding matching schemes — this may take up to 60s...";
+  else if (elapsed >= 35 && elapsed < 60) msg = "Almost there! Finalising your matches...";
+  else if (elapsed >= 60) msg = "Taking longer than usual, please wait...";
+
   return (
     <div className="ai-thinking">
-      {THINKING_MESSAGES.slice(0, step + 1).map((m, i) => (
-        <div key={i} className="thinking-msg"><span className="thinking-emoji">{m.emoji}</span><span>{m.text}</span></div>
-      ))}
-      {elapsed >= 10 && (
-        <div className="thinking-msg" style={{ color:"var(--text-muted)", fontSize:12 }}>
-          <span className="thinking-emoji">⏱️</span>
-          <span>Processing for {elapsed}s — AI models can take up to 60s on first run…</span>
-        </div>
-      )}
+      <div className="thinking-msg">
+        <span className="thinking-emoji">⏳</span>
+        <span>{msg} ({elapsed}s)</span>
+      </div>
       <div className="shimmer-lines">
         {[100, 80, 60].map((w, i) => <div key={i} className="shimmer-line" style={{ width:`${w}%`, animationDelay:`${i*0.15}s` }}/>)}
       </div>
@@ -1125,6 +1125,24 @@ export default function App() {
     return()=>document.removeEventListener("mousedown",h);
   },[]);
 
+  // Connection Test Function
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(10000) });
+        const data = await res.json();
+        if (data.status === "ok") {
+          console.log("✅ Backend connected successfully!");
+        } else {
+          console.warn("⚠️ Backend responded but status unexpected:", data);
+        }
+      } catch (err) {
+        console.error("❌ Backend not reachable:", err.message);
+      }
+    };
+    if (API_BASE) checkBackend();
+  }, []);
+
   const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),3500);};
 
   /* ── REAL Google Sign-In ── */
@@ -1238,6 +1256,11 @@ export default function App() {
       console.log(data);
       setTyping(false);
       if(data?.error){
+        setTyping(false);
+        if (data.error.toLowerCase().includes("timed out")) {
+          setApiError("Request timed out. The server is under load — please try again.");
+          return;
+        }
         const fallbackSchemes=mapFallbackSchemes();
         setApiError(null);
         setMessages(prev=>[...(Array.isArray(prev)?prev:[]),{role:"ai",time:fmtTime(),text:"I could not fetch live matches right now. Showing fallback schemes."}]);
@@ -1256,8 +1279,8 @@ export default function App() {
       setTimeout(()=>{if(canvasRef.current)canvasRef.current.scrollTop=canvasRef.current.scrollHeight;},80);
     } catch (err) {
       setTyping(false);
-      const errMsg = (err?.message || "").toLowerCase().includes("timed out")
-        ? "⚠️ Server is warming up (Render cold start). Please wait 30s and try again."
+      const errMsg = (err?.message || "").toLowerCase().includes("timeout") || (err?.message || "").toLowerCase().includes("abort")
+        ? "Request timed out. The server is under load — please try again."
         : "Failed to connect to the backend.";
       setApiError(errMsg);
       setCurrentStep("profile");
@@ -1279,6 +1302,11 @@ export default function App() {
       console.log(data);
       setTyping(false);
       if(data?.error){
+        setTyping(false);
+        if (data.error.toLowerCase().includes("timed out")) {
+          setApiError("Request timed out. The server is under load — please try again.");
+          return;
+        }
         const fallbackSchemes=mapFallbackSchemes();
         setApiError(null);
         setMessages(prev=>[...(Array.isArray(prev)?prev:[]),{role:"ai",time:fmtTime(),text:"I could not fetch live matches right now. Showing fallback schemes."}]);
@@ -1297,8 +1325,8 @@ export default function App() {
       setTimeout(()=>{if(canvasRef.current)canvasRef.current.scrollTop=canvasRef.current.scrollHeight;},80);
     } catch (err) {
       setTyping(false);
-      const errMsg = (err?.message || "").toLowerCase().includes("timed out")
-        ? "⚠️ Server is warming up (Render cold start). Please wait 30s and try again."
+      const errMsg = (err?.message || "").toLowerCase().includes("timeout") || (err?.message || "").toLowerCase().includes("abort")
+        ? "Request timed out. The server is under load — please try again."
         : "Failed to connect to the backend.";
       setApiError(errMsg);
       setCurrentStep("profile");
@@ -1356,7 +1384,7 @@ export default function App() {
   return (
     <>
       <style>{CSS}</style>
-      <div className={`app${darkMode?" dark":""}`}>
+      <div className={`app ${darkMode?"dark":""}`}>
 
         {/* ANNOUNCE */}
         <div className="announce-bar">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const LP_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap');
@@ -53,93 +53,155 @@ const LP_CSS = `
   }
   .lp-nav-cta:hover { background: rgba(196,165,116,0.2); border-color: #c4a574; }
 
-  /* ── HERO ── */
-  .lp-hero {
-    flex: 1;
+  /* ── HERO SLIDER ── */
+  .lp-hero-slider {
+    position: relative;
+    width: 100%;
+    height: 560px;
+    overflow: hidden;
+    background: #0f2a44;
+  }
+  @media (max-width: 768px) { .lp-hero-slider { height: 320px; } }
+
+  .lp-slider-track {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  .lp-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.8s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-size: cover;
+    background-position: center;
+  }
+  .lp-slide.active { opacity: 1; z-index: 1; }
+
+  .lp-slide-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 1;
+  }
+
+  .lp-slide-content {
+    position: relative;
+    z-index: 2;
+    max-width: 800px;
+    padding: 0 40px;
+    text-align: center;
+  }
+
+  .lp-slide-badge {
+    display: inline-block;
+    padding: 6px 16px;
+    background: rgba(196,165,116,0.2);
+    border: 1px solid #c4a574;
+    color: #c4a574;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+
+  .lp-slide-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 48px;
+    color: white;
+    margin-bottom: 16px;
+    line-height: 1.1;
+  }
+  @media (max-width: 768px) { .lp-slide-title { font-size: 28px; } }
+
+  .lp-slide-sub {
+    font-size: 18px;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 30px;
+  }
+  @media (max-width: 768px) { .lp-slide-sub { font-size: 14px; } }
+
+  .lp-slide-cta {
+    padding: 14px 32px;
+    background: #c4a574;
+    color: #0f2a44;
+    border: none;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .lp-slide-cta:hover { transform: scale(1.05); }
+
+  .lp-slider-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0,0,0,0.3);
+    color: white;
+    border: none;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    font-size: 30px;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+  .lp-slider-arrow:hover { background: rgba(0,0,0,0.6); }
+  .lp-prev { left: 20px; }
+  .lp-next { right: 20px; }
+
+  .lp-slider-dots {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    z-index: 10;
+  }
+  .lp-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .lp-dot.active {
+    background: #c4a574;
+    transform: scale(1.2);
+  }
+
+  .lp-auth-bottom {
+    padding: 40px 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 80px 24px 60px;
-    position: relative;
-    overflow: hidden;
+    gap: 16px;
+    background: #0a1628;
   }
-  .lp-hero::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(196,165,116,0.08) 0%, transparent 70%),
-      radial-gradient(ellipse 60% 40% at 20% 80%, rgba(15,42,68,0.6) 0%, transparent 60%);
-    pointer-events: none;
+  .lp-google-btn-main {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 32px; border-radius: 8px;
+    background: white; color: #1a1a1a;
+    font-size: 16px; font-weight: 600; cursor: pointer;
+    border: 1px solid #ddd; transition: all 0.2s;
   }
-  .lp-emblem {
-    width: 76px; height: 76px; border-radius: 50%;
-    background: radial-gradient(circle at 38% 32%, rgba(196,165,116,0.25), rgba(15,42,68,0.1));
-    border: 1.5px solid rgba(196,165,116,0.35);
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 24px;
-    animation: lpPulse 3s ease-in-out infinite;
-    position: relative; z-index: 1;
+  .lp-google-btn-main:hover { background: #f8f8f8; transform: translateY(-1px); }
+  .lp-guest-link {
+    background: none; border: none; color: #c4a574;
+    font-size: 14px; cursor: pointer; text-decoration: underline;
   }
-  @keyframes lpPulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(196,165,116,0.15); }
-    50%       { box-shadow: 0 0 0 16px rgba(196,165,116,0); }
-  }
-  .lp-flag-pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 14px; border-radius: 999px;
-    border: 1px solid rgba(196,165,116,0.2);
-    background: rgba(196,165,116,0.07);
-    font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
-    color: rgba(196,165,116,0.85); text-transform: uppercase;
-    margin-bottom: 22px; position: relative; z-index: 1;
-  }
-  .lp-h1 {
-    font-family: 'DM Serif Display', serif;
-    font-size: clamp(32px, 5vw, 54px);
-    line-height: 1.15;
-    color: rgba(240,236,228,0.97);
-    max-width: 680px;
-    margin-bottom: 20px;
-    position: relative; z-index: 1;
-  }
-  .lp-h1 em { color: #c4a574; font-style: normal; }
-  .lp-sub {
-    font-size: 16px; color: rgba(196,185,168,0.75);
-    max-width: 500px; line-height: 1.65; margin-bottom: 40px;
-    position: relative; z-index: 1;
-  }
-  .lp-cta-group {
-    display: flex; flex-direction: column; align-items: center; gap: 12px;
-    position: relative; z-index: 1;
-  }
-  .lp-google-btn {
-    display: flex; align-items: center; justify-content: center; gap: 12px;
-    padding: 14px 32px; border-radius: 14px;
-    border: none; background: #ffffff;
-    color: #1a1a2e; font-size: 15px; font-weight: 700;
-    font-family: inherit; cursor: pointer; transition: all 0.2s;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.25), 0 1px 4px rgba(0,0,0,0.12);
-    min-width: 280px;
-  }
-  .lp-google-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
-  .lp-google-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
-  .lp-guest-btn {
-    background: none; border: none; cursor: pointer;
-    font-family: inherit; font-size: 13px;
-    color: rgba(196,165,116,0.6); font-weight: 500;
-    text-decoration: underline; text-underline-offset: 3px;
-    transition: color 0.15s;
-  }
-  .lp-guest-btn:hover { color: rgba(196,165,116,0.9); }
-  .lp-trust-line {
-    display: flex; align-items: center; gap: 14px;
-    margin-top: 6px; font-size: 11px;
-    color: rgba(196,185,168,0.45); font-weight: 500;
-  }
-  .lp-trust-dot { width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
 
   /* ── STATS ── */
   .lp-stats {
@@ -233,8 +295,62 @@ const FEATURES = [
   { icon: "🌐", title: "11 Indian Languages", text: "Ask questions and receive scheme guidance in Hindi, Gujarati, Bengali, Tamil, and 8 more regional languages." },
 ];
 
+const SLIDES = [
+  {
+    img: "/images/slider/slide1.png",
+    badge: "🌾 Agriculture",
+    title: "PM Kisan — ₹6,000/year for Farmers",
+    sub: "2+ crore farmers already enrolled. Check eligibility in 30 seconds.",
+  },
+  {
+    img: "/images/slider/slide2.png",
+    badge: "🏥 Health",
+    title: "Ayushman Bharat — ₹5 Lakh Free Health Cover",
+    sub: "India's largest health insurance scheme for your family.",
+  },
+  {
+    img: "/images/slider/slide3.png",
+    badge: "🎓 Education",
+    title: "Scholarships for Every Student",
+    sub: "SC/ST/OBC and minority scholarships up to ₹75,000/year.",
+  },
+  {
+    img: "/images/slider/slide4.png",
+    badge: "🏠 Housing",
+    title: "PM Awas Yojana — Free Pucca House",
+    sub: "Subsidised homes for eligible families under PMAY.",
+  },
+  {
+    img: "/images/slider/slide5.png",
+    badge: "💼 Business",
+    title: "Mudra Loan — ₹10 Lakh Without Collateral",
+    sub: "Grow your business with zero collateral government loans.",
+  },
+];
+
 export default function LandingPage({ onGoogleSignIn, onGuest }) {
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Preload Images
+  useEffect(() => {
+    SLIDES.forEach(slide => {
+      const img = new Image();
+      img.src = slide.img;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (paused) return;
+    const timer = setInterval(() => {
+      setCurrentSlide((c) => (c + 1) % SLIDES.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [paused]);
+
+  const prev = () => setCurrentSlide((c) => (c - 1 + SLIDES.length) % SLIDES.length);
+  const next = () => setCurrentSlide((c) => (c + 1) % SLIDES.length);
 
   const handleGoogle = async () => {
     setLoading(true);
@@ -255,52 +371,70 @@ export default function LandingPage({ onGoogleSignIn, onGuest }) {
             <span className="lp-badge">AI Powered</span>
           </div>
           <button className="lp-nav-cta" onClick={handleGoogle} disabled={loading}>
-            {loading ? "Signing in…" : "🔐 Sign In"}
+            {loading ? "Signing in…" : "🔐 Login"}
           </button>
         </nav>
 
-        {/* HERO */}
-        <section className="lp-hero">
-          <div className="lp-emblem"><AiOrb size={40}/></div>
-
-          <div className="lp-flag-pill lp-animate">
-            🇮🇳 Government Welfare Scheme Intelligence
+        {/* HERO SLIDER */}
+        <section 
+          className="lp-hero-slider"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+        >
+          <div className="lp-slider-track">
+            {SLIDES.map((slide, index) => (
+              <div
+                key={index}
+                className={`lp-slide ${index === currentSlide ? "active" : ""}`}
+                style={{ 
+                  backgroundImage: `url(${slide.img})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center"
+                }}
+              >
+                <div className="lp-slide-overlay" />
+                <div className="lp-slide-content">
+                  <div className="lp-slide-badge">{slide.badge}</div>
+                  <h2 className="lp-slide-title">{slide.title}</h2>
+                  <p className="lp-slide-sub">{slide.sub}</p>
+                  <button className="lp-slide-cta" onClick={handleGoogle}>
+                    Check My Eligibility →
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
 
-          <h1 className="lp-h1 lp-animate lp-animate-d1">
-            Find Every Government Scheme<br/>
-            <em>You Qualify For — Instantly</em>
-          </h1>
+          {/* Navigation */}
+          <button className="lp-slider-arrow lp-prev" onClick={prev}>‹</button>
+          <button className="lp-slider-arrow lp-next" onClick={next}>›</button>
 
-          <p className="lp-sub lp-animate lp-animate-d2">
-            PolicyPilot uses AI to match your profile with 1000+ central and state welfare schemes.
-            Get step-by-step guidance in your language — no paperwork confusion.
-          </p>
-
-          <div className="lp-cta-group lp-animate lp-animate-d3">
-            <button
-              id="lp-google-signin"
-              className="lp-google-btn"
-              onClick={handleGoogle}
-              disabled={loading}
-            >
-              <GoogleIcon/>
-              {loading ? "Signing in with Google…" : "Continue with Google"}
-            </button>
-
-            <button className="lp-guest-btn" onClick={onGuest}>
-              Continue as Guest (no login required)
-            </button>
-
-            <div className="lp-trust-line">
-              <span>🔒 Data stays on your device</span>
-              <span className="lp-trust-dot"/>
-              <span>✅ Official government sources</span>
-              <span className="lp-trust-dot"/>
-              <span>Free to use</span>
-            </div>
+          {/* Indicators */}
+          <div className="lp-slider-dots">
+            {SLIDES.map((_, i) => (
+              <div 
+                key={i} 
+                className={`lp-dot ${i === currentSlide ? "active" : ""}`}
+                onClick={() => setCurrentSlide(i)}
+              />
+            ))}
           </div>
         </section>
+
+        {/* AUTH CONTROLS BELOW SLIDER */}
+        <div className="lp-auth-bottom">
+          <button
+            className="lp-google-btn-main"
+            onClick={handleGoogle}
+            disabled={loading}
+          >
+            <GoogleIcon/>
+            {loading ? "Signing in…" : "Sign in with Google"}
+          </button>
+          <button className="lp-guest-link" onClick={onGuest}>
+            Continue as Guest (no login required)
+          </button>
+        </div>
 
         {/* STATS */}
         <div className="lp-stats lp-animate lp-animate-d4">
