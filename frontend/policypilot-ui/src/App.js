@@ -8,6 +8,7 @@ import { useAuth } from "./contexts/AuthContext";
    CONFIG
 ═══════════════════════════════════════════════════════════════ */
 const API_BASE = (process.env.REACT_APP_API_URL || "").replace(/\/$/, "");
+console.log("🔍 API_BASE value:", API_BASE || "❌ EMPTY - env var missing!");
 const API_TIMEOUT_MS = 90000; // 90s — AI + RAG can take 30-60s on Render free tier
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1127,20 +1128,22 @@ export default function App() {
 
   // Connection Test Function
   useEffect(() => {
+    if (!API_BASE) {
+      console.error("❌ REACT_APP_API_URL is not set!");
+      return;
+    }
     const checkBackend = async () => {
       try {
-        const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(10000) });
+        const res = await fetch(`${API_BASE}/health`, {
+          signal: AbortSignal.timeout(15000)
+        });
         const data = await res.json();
-        if (data.status === "ok") {
-          console.log("✅ Backend connected successfully!");
-        } else {
-          console.warn("⚠️ Backend responded but status unexpected:", data);
-        }
+        console.log("✅ Backend health:", data);
       } catch (err) {
-        console.error("❌ Backend not reachable:", err.message);
+        console.error("❌ Backend check failed:", err.message);
       }
     };
-    if (API_BASE) checkBackend();
+    checkBackend();
   }, []);
 
   const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),3500);};
