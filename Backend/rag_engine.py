@@ -2,7 +2,7 @@ import os
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,10 +15,9 @@ _VECTORSTORE = None
 def get_embeddings():
     global _EMBEDDINGS
     if _EMBEDDINGS is None:
-        _EMBEDDINGS = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/paraphrase-MiniLM-L3-v2",
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": False, "batch_size": 4}
+        _EMBEDDINGS = GoogleGenerativeAIEmbeddings(
+            model="models/embedding-001",
+            google_api_key=os.getenv("GEMINI_API_KEY")
         )
     return _EMBEDDINGS
 

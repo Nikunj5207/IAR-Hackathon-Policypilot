@@ -3,13 +3,12 @@ uvicorn
 langchain
 langchain-community
 langchain-groq
-langchain-huggingface
+langchain-google-genai
 langchain-chroma
 langchain-text-splitters
 chromadb
 pymupdf
 python-multipart
 python-dotenv
-sentence-transformers
 groq
 pydantic
