@@ -221,16 +221,21 @@ RULES:
     try:
         response = llm.invoke(prompt)
         content = response.content.strip()
-        # Clean any markdown fences
-        if content.startswith("```"):
-            content = content.split("```")[1]
-            if content.startswith("json"):
-                content = content[4:]
+        # Remove ALL markdown fences
+        content = re.sub(r"```json|```", "", content).strip()
+        # Extract JSON object even if there's extra text around it
+        match = re.search(r"\{.*\}", content, re.DOTALL)
+        if match:
+            content = match.group()
         result = json.loads(content)
+        # Validate minimum required fields
+        if not result.get("schemes"):
+            logger.warning("LLM returned no schemes — using fallback")
+            raise ValueError("No schemes in response")
+        logger.info(f"[agent] LLM returned {len(result['schemes'])} schemes successfully")
         return result
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON parse error: {e}")
-        # Return structured fallback
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error(f"JSON parse error: {e} — using keyword fallback")
         return {
             "message": "Here are the most relevant schemes based on your profile.",
             "schemes": _get_fallback_schemes(citizen_profile),
@@ -238,8 +243,13 @@ RULES:
             "summary": "Please visit your nearest CSC center for personalized assistance."
         }
     except Exception as e:
-        logger.error(f"LLM error: {e}")
-        return {"error": str(e)}
+        logger.error(f"LLM error: {e} — using keyword fallback")
+        return {
+            "message": "Here are the most relevant schemes based on your profile.",
+            "schemes": _get_fallback_schemes(citizen_profile),
+            "conflicts": [],
+            "summary": ""
+        }
 
 def _get_fallback_schemes(profile: str) -> list:
     """Returns hardcoded relevant schemes based on keywords in profile"""

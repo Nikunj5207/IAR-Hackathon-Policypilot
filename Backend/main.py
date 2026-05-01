@@ -215,23 +215,19 @@ async def find_schemes_endpoint(body: FindSchemesRequest):
 
         t2 = time.time()
         result = find_schemes(body.citizen_profile, preferred_language=lang)
-        # -- Fallback --
-        from agent import SCHEME_KEYWORDS
-        intro_text = (result.get("guidance", {}) or {}).get("intro", "").lower()
-        if any(p in intro_text for p in ["income", "state", "occupation"]) and any(kw in body.citizen_profile.lower() for kw in SCHEME_KEYWORDS):
-            result = find_schemes(f"Direct info for: {body.citizen_profile}", preferred_language=lang)
+        if result.get("error"):
+            raise Exception(result["error"])
         logger.info("[find-schemes] find_schemes() completed in %.2fs", time.time() - t2)
 
         schemes = result.get("schemes", [])
         sources = result.get("sources", [])
         model_conflicts = result.get("conflicts", [])
-        guidance = result.get("guidance", {}) or {}
 
         t3 = time.time()
         enriched_schemes = _enrich_schemes_with_checklist(schemes)
         conflicts = model_conflicts or _detect_scheme_conflicts(enriched_schemes)
         summary = _build_plain_language_summary(enriched_schemes, lang)
-        message = guidance.get("intro") or summary or "Here are your matched schemes."
+        message = result.get("message", "") or summary or "Here are your matched schemes."
         logger.info("[find-schemes] Enrichment + conflict check in %.2fs", time.time() - t3)
 
         # ── Persist to chat store ───────────────────────────────────
