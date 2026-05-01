@@ -29,11 +29,19 @@ app = FastAPI(title="PolicyPilot API", version="2.0.0")
 # ── CORS ──────────────────────────────────────────────────────
 frontend_origins = [
     "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
     "https://frontendpolicypilot.vercel.app",
+    "https://frontendpolicypilot-ui.vercel.app",
 ]
 extra_origins = os.getenv("ALLOWED_ORIGINS", "")
 if extra_origins:
     frontend_origins.extend([o.strip() for o in extra_origins.split(",") if o.strip()])
+
+# Remove duplicates
+frontend_origins = list(set(frontend_origins))
+logger.info(f"CORS Allowed Origins: {frontend_origins}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=frontend_origins,
@@ -41,6 +49,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def add_cors_debug_headers(request, call_next):
+    origin = request.headers.get("origin")
+    if origin:
+        logger.info(f"Request Origin: {origin}")
+    response = await call_next(request)
+    return response
 
 UPLOAD_DIR = "uploaded_docs"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
