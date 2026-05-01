@@ -16,7 +16,9 @@ def get_embeddings():
     global _EMBEDDINGS
     if _EMBEDDINGS is None:
         _EMBEDDINGS = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
+            model_name="sentence-transformers/paraphrase-MiniLM-L3-v2",
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": False, "batch_size": 4}
         )
     return _EMBEDDINGS
 

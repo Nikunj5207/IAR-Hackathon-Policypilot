@@ -486,9 +486,10 @@ RULES:
     try:
         groq_client = get_groq_client()
         response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="gemma2-9b-it",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=4000,
+            max_tokens=400,
+            temperature=0.1,
         )
 
         raw = response.choices[0].message.content.strip()
@@ -574,8 +575,9 @@ Always cite the source document and page number for each point.
 
     groq_client = get_groq_client()
     response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="gemma2-9b-it",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=2000,
+        max_tokens=400,
+        temperature=0.1,
     )
     return response.choices[0].message.content
