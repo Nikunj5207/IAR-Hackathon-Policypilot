@@ -227,76 +227,91 @@ def find_schemes(citizen_profile: str, preferred_language: str = "en") -> dict:
         logger.warning(f"RAG skipped: {e}")
         rag_context = "No additional documents available."
 
+    # Determine strict language instruction
+    lang_instructions = {
+        "en": "You MUST write ALL text in English only. Do not use any Hindi, Gujarati or any other language anywhere in your response. Every single word must be English.",
+        "hi": "आपको अपना पूरा जवाब केवल हिंदी में देना है। एक भी शब्द अंग्रेजी या किसी अन्य भाषा में नहीं होना चाहिए। scheme names, benefits, steps, reasons — सब कुछ हिंदी में।",
+        "gu": "તમારે સમગ્ર જવાબ માત્ર ગુજરાતીમાં આપવાનો છે. એક પણ શબ્દ અંગ્રેજી કે અન્ય ભાષામાં ન હોવો જોઈએ. scheme names, benefits, steps — બધું ગુજરાતીમાં.",
+        "bn": "আপনাকে সম্পূর্ণ উত্তর শুধুমাত্র বাংলায় দিতে হবে। একটি শব্দও ইংরেজি বা অন্য ভাষায় হওয়া উচিত নয়।",
+        "te": "మీరు మీ మొత్తం సమాధానం తెలుగులో మాత్రమే ఇవ్వాలి. ఒక్క మాట కూడా ఇంగ్లీష్లో ఉండకూడదు.",
+        "mr": "तुम्हाला संपूर्ण उत्तर फक्त मराठीत द्यायचे आहे. एकही शब्द इंग्रजी किंवा इतर भाषेत नसावा.",
+        "ta": "நீங்கள் உங்கள் முழு பதிலையும் தமிழில் மட்டுமே தர வேண்டும். ஒரு வார்த்தை கூட ஆங்கிலத்தில் இருக்கக்கூடாது.",
+        "kn": "ನೀವು ನಿಮ್ಮ સંપૂર્ણ ಉತ್ತರವನ್ನು ಕನ್ನಡದಲ್ಲಿ ಮಾತ್ರ ನೀಡಬೇಕು. ಒಂದೇ ಒಂದು ಪದ ಇಂಗ್ಲಿಷ್ನಲ್ಲಿ ಇರಬಾರದು.",
+        "ml": "നിങ്ങൾ നിങ്ങളുടെ മുഴുവൻ ഉത്തരവും മലയാളത്തിൽ മാത്രം നൽകണം. ഒരു വാക്കും ഇംഗ്ലീഷിൽ ഉണ്ടാകരുത്.",
+        "or": "ଆପଣ ଆପଣଙ୍କ ସମ୍ପୂର୍ଣ୍ણ ଉତ୍ତର କେବଳ ଓଡ଼ିଆରେ ଦେବେ। ଗୋଟିଏ ଶବ୍ଦ ମଧ୍ୟ ଇଂରାଜୀରେ ହେବ ନାହିଁ।",
+        "pa": "ਤੁਹਾਨੂੰ ਆਪਣਾ ਪੂਰਾ ਜਵਾਬ ਸਿਰਫ਼ ਪੰਜਾਬી ਵਿੱਚ ਦੇਣਾ ਹੈ। ਇੱਕ ਵੀ ਸ਼ਬਦ ਅੰਗਰੇਜ਼ੀ ਵਿੱਚ ਨਹੀਂ ਹੋਣਾ ਚਾਹੀਦਾ।",
+        "as": "আপুনি আপোনাৰ সম্পূৰ্ণ উত্তৰ কেৱલ অসমীয়াত দিব লাগিব। এটাও শব্দ ইংৰাজীত নাথাকিব লাগে।",
+    }
+
+    strict_lang = lang_instructions.get(preferred_language, lang_instructions["en"])
+
     prompt = f"""You are PolicyPilot, an expert on Indian government welfare schemes.
+
+═══════════════════════════════════════════
+LANGUAGE RULE — READ THIS FIRST:
+{strict_lang}
+This is the most important rule. Breaking this rule is not allowed.
+═══════════════════════════════════════════
 
 CITIZEN PROFILE:
 {citizen_profile}
 
-REFERENCE DOCUMENTS (from RAG):
+REFERENCE DOCUMENTS:
 {rag_context}
 
-Your task is to analyze this citizen's profile and return a JSON response with EXACTLY this structure:
+Return ONLY valid JSON with EXACTLY this structure.
+ALL text values inside the JSON must follow the language rule above:
 
 {{
-  "message": "Plain language summary of findings in {preferred_language} language",
+  "message": "Summary in the required language only",
   "schemes": [
     {{
       "id": 1,
       "title": "Scheme Name",
-      "tag": "Category (Agri/Health/Housing/Education/Finance)",
+      "tag": "Category",
       "tagColor": "#2d6a4f",
       "tagBg": "rgba(45,106,79,0.1)",
-      "reason": "Why this citizen qualifies — specific to their profile",
+      "reason": "Eligibility reason in the required language only",
       "match": 92,
       "bullets": [
-        "Key benefit 1",
-        "Key benefit 2",
-        "Key benefit 3"
+        "Benefit 1 in required language",
+        "Benefit 2 in required language",
+        "Benefit 3 in required language"
       ],
       "explainPoints": [
-        "Eligibility criterion met: annual income below threshold",
-        "Eligibility criterion met: residence type matches",
-        "Eligibility criterion met: category qualifies"
+        "Eligibility point 1 in required language",
+        "Eligibility point 2 in required language"
       ],
       "applicationChecklist": [
-        "Step 1: Gather Aadhaar card",
-        "Step 2: Get income certificate from tehsil",
-        "Step 3: Visit official portal or CSC center",
-        "Step 4: Submit application with reference number"
+        "Step 1 in required language",
+        "Step 2 in required language",
+        "Step 3 in required language",
+        "Step 4 in required language"
       ],
       "draftForm": {{
         "status": "ready",
-        "applicantName": "As per Aadhaar",
-        "scheme": "Scheme Name",
-        "portal": "https://official-portal-url.gov.in"
+        "portal": "https://official-portal.gov.in"
       }},
       "conflicts": []
     }}
   ],
-  "conflicts": [
-    {{
-      "scheme": "Scheme Name",
-      "conflict": "Central scheme requires X but Gujarat state version requires Y",
-      "recommendation": "Apply for central version if income below 1.5L"
-    }}
-  ],
-  "summary": "Plain language summary in Hindi or regional language if requested"
+  "conflicts": [],
+  "summary": "Plain language summary in required language only"
 }}
 
-RULES:
-1. Return ONLY valid JSON — no markdown, no explanation outside JSON
-2. Match AT LEAST 5 schemes relevant to the citizen profile
-3. Each scheme MUST have applicationChecklist with 4-6 specific steps
-4. reason field MUST reference specific details from the citizen's profile
-5. match score must be realistic (60-98 range)
-6. If citizen mentions housing → always include PMAY
-7. If farmer → always include PM Kisan, KCC, Fasal Bima
-8. If health → always include Ayushman Bharat
-9. If woman → always include Ujjwala, Sukanya Samriddhi
-10. If income below 2.5L → include all BPL schemes
-11. Detect conflicts between central and state versions of same scheme
-12. If preferred_language is 'hi' → write message and summary in Hindi
-13. If preferred_language is 'gu' → write message and summary in Gujarati
+STRICT RULES:
+1. Return ONLY valid JSON — no markdown, no text outside JSON
+2. Language rule above is ABSOLUTE — follow it for EVERY field value
+3. Match AT LEAST 5 schemes relevant to the profile
+4. Each scheme MUST have applicationChecklist with 4-6 steps
+5. reason MUST reference specific details from citizen profile
+6. match score must be realistic between 60 and 98
+7. If farmer → include PM Kisan, KCC, Fasal Bima
+8. If housing/BPL → include PMAY
+9. If health → include Ayushman Bharat
+10. If woman → include Ujjwala, Sukanya Samriddhi
+11. If income below 2.5L → include BPL schemes
+12. scheme title field can stay in English for recognition but ALL other fields must be in required language
 """
 
     try:

@@ -235,7 +235,7 @@ async def find_schemes_endpoint(body: FindSchemesRequest):
         t3 = time.time()
         enriched_schemes = _enrich_schemes_with_checklist(schemes)
         conflicts = model_conflicts or _detect_scheme_conflicts(enriched_schemes)
-        summary = _build_plain_language_summary(enriched_schemes, lang)
+        summary = result.get("summary") or _build_plain_language_summary(enriched_schemes, lang)
         message = result.get("message", "") or summary or "Here are your matched schemes."
         logger.info("[find-schemes] Enrichment + conflict check in %.2fs", time.time() - t3)
 
